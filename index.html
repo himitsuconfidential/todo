@@ -1,0 +1,211 @@
+
+<head>
+
+    <title>Task Management</title>
+    <style>
+
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }
+    .section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px silver;
+    }
+    h2 {
+        margin-bottom: 15px;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    td input {
+        width: calc(100% - 2px);
+        padding: 12px;
+        border: 1px solid #ddd;
+        box-sizing: border-box;
+        outline: none;
+    }
+    #log-table tbody tr:first-child input {
+        background-color: #ffcccc;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+    }
+    button{
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: none;
+        cursor: pointer;
+    }
+    .add-button, .copy-button {
+        background-color: #4CAF50; /* Green */
+        color: white;
+    }
+    .delete-button {
+        background-color: #f44336; /* Red */
+        color: white;
+    }
+    .end-now-button{
+        background-color: #008CBA;
+        color: white;
+    }
+
+    </style>
+</head>
+<body>
+    <div class="section">
+        <h2>Mission</h2>
+        <button class="copy-button" onclick="copyTableToClipboard('mission-table')">Copy Mission Table</button>
+        <button class="add-button" onclick="addRow('mission', ['Deadline', 'Task'])">Add Mission</button>
+        <table id="mission-table"><thead><tr><th>Deadline</th><th>Task</th></tr></thead><tbody></tbody></table>
+    </div>
+
+       
+
+    <div class="section">
+        <h2>Log</h2>
+        <button class="copy-button" onclick="copyTableToClipboard('log-table')">Copy Log Table</button>
+        <button class="add-button" onclick="addRow('log', ['Start Time', 'End Time', 'Flow', 'Task', 'Path'])">Add Log</button>
+        <table id="log-table"><thead><tr><th>Start Time</th><th>End Time</th><th>Flow</th><th>Task</th><th>Path</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <script>
+        const STORAGE_KEYS = { mission: 'missions', log: 'logs' };
+
+        const saveData = (type, data) => localStorage.setItem(STORAGE_KEYS[type], JSON.stringify(data));
+        const loadData = type => JSON.parse(localStorage.getItem(STORAGE_KEYS[type]) || '[]');
+        
+          
+        const deleteRow = button => {
+            button.closest('tr').remove();
+            saveTableData('mission');
+            saveTableData('log')
+        };
+
+        const endNow = (button) => {
+            const row = button.closest('tr');
+            const endTimeInput = row.cells[1].querySelector('input');
+            endTimeInput.value = new Date().toLocaleString().replace(',','');
+            saveTableData('mission');
+            saveTableData('log')
+        };
+
+        const copyPath = button => {
+            const row = button.closest('tr');
+            const pathCell = row.cells[4]; // Path is the 5th cell (index 4)
+            const path = pathCell.querySelector('input').value;
+            navigator.clipboard.writeText(path).then(() => {
+                alert("Path copied to clipboard!");
+            }).catch(err => {
+                console.error('Failed to copy path: ', err);
+                alert("Failed to copy path to clipboard.");
+            });
+        };
+
+        const populateTable = (type, columns) => {
+            const table = document.getElementById(type + '-table').querySelector('tbody');
+            table.innerHTML = '';
+            const data = loadData(type);
+
+            for (const item of data) { // Iterate backwards using for...of
+                const row = table.insertRow();
+                for (const col of columns) { // Iterate over columns using for...of
+                    const cell = row.insertCell();
+                    cell.innerHTML = `<input type="text" value="${item[col] || ''}" onblur="saveTableData(this.closest('table').id === 'mission-table' ? 'mission' : 'log')">`;
+                }
+                const actionsCell = row.insertCell();
+                actionsCell.className = "action-buttons";
+                actionsCell.innerHTML = `
+                    <button class="delete-button" onclick="deleteRow(this)">Delete</button>
+                `;
+                if (type === 'log'){
+                    actionsCell.innerHTML+= `<button class="end-now-button" onclick="endNow(this)">End Now</button> 
+                    <button class="copy-path-button" onclick="copyPath(this)">Copy Path</button>`
+                }
+                    
+            }
+        };
+
+        const addRow = (type, columns) => {
+            const data = loadData(type);
+            const newItem = columns.reduce((obj, col) => ({ ...obj, [col]: '' }), {});
+            if (type === 'log') {
+                newItem['Start Time'] = new Date().toLocaleString().replace(',',''); // Set start time for log entries
+            }   
+            data.unshift(newItem);
+            saveData(type, data);
+            populateTable(type, columns);
+        };
+
+        const saveTableData = type => {
+            const table = document.getElementById(type + '-table').querySelector('tbody');
+            const data = [];
+
+            for (const row of table.rows) {
+                const rowData = {};
+                let cellIndex = 0; // Keep track of cell index for header lookup
+                for (const cell of row.cells) {
+                    if (cellIndex < row.cells.length - 1) { // Exclude last cell (actions)
+                        const headerText = table.closest('table').querySelectorAll('th')[cellIndex].textContent;
+                        rowData[headerText] = cell.querySelector('input').value;
+                    }
+                    cellIndex++; // Increment cell index
+                }
+                data.push(rowData);
+            }
+            saveData(type, data);
+        };
+        
+        const copyTableToClipboard = (tableId) => {
+            const table = document.getElementById(tableId);
+            let tableText = "";
+
+            // Get headers
+            const headers = table.querySelectorAll('th');
+            for (const header of headers) {
+                tableText += header.textContent + "\t"; // Use tab for column separation
+            }
+            tableText = tableText.trim() + "\n"; // Add newline after headers
+
+            // Get rows
+            const rows = table.querySelectorAll('tbody tr');
+            for (const row of rows) {
+                const cells = row.querySelectorAll('td');
+                for (let i = 0; i < cells.length - (tableId === 'log-table' ? 1 : 0); i++) {
+                    const cell = cells[i];
+                    if (cell.querySelector('input')) {
+                        tableText += cell.querySelector('input').value + "\t";
+                    } else {
+                        tableText += cell.textContent + "\t";
+                    }
+                }
+                tableText = tableText.trim() + "\n";
+            }
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(tableText).then(() => {
+                alert("Table copied to clipboard!");
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert("Failed to copy table to clipboard.");
+            });
+        };
+
+        window.onload = () => {
+            populateTable('mission', ['Deadline', 'Task']);
+            populateTable('log', ['Start Time', 'End Time', 'Flow', 'Task', 'Path']);
+        };
+
+        window.addEventListener('blur', () => {
+            saveTableData('mission');
+            saveTableData('log');
+        });
+    </script>
+</body>
