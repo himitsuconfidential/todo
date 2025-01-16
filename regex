@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encrypt</title>
+    <style>
+        body {
+            background-color: lightblue;
+            margin: 10vh;
+            
+        }
+        b{
+            font-size: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        p{
+
+            border-style: solid;
+            border-width: 3px;
+            border-color: silver;
+            background-color: lightcyan;
+            padding: 30px 10px 30px 10px;
+            border-radius: 4px;
+            width: 80vw;
+        }
+        button{
+            font-size:16px;
+            margin:10px;
+            height:30px;
+            width:100px;
+            border-radius: 4px;
+            
+            color: white;
+            background:navy;
+            cursor: pointer;
+            border: none
+        }
+        button:hover{
+            background-color: blue;
+        }
+        textarea{
+            font-size:16px;
+            overflow: auto;
+            resize: vertical;
+            height: 300px;
+            width: 80vw;
+            max-height: 700px;
+            min-height: 200px;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        input{
+            font-size:16px;
+            height: 30px;
+            width: 80vw
+        }
+
+
+    </style>
+    <script type="text/javascript">
+
+    function browser_encrypt(){
+        var text = document.getElementById("text").value;
+        var regexInput = document.getElementById("regexInput").value;
+        var regexOutput = document.getElementById("regexOutput").value;
+        document.getElementById("demo0").innerText = '';
+        document.getElementById("demo1").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, 'g'),regexOutput) + "</pre>";
+    }
+
+    </script>
+</head>
+<body>
+    
+    <textarea id="text" rows = "5" placeholder="enter text to be endcrypted/decrypted i_1 i_3"></textarea><br>
+    <input id="regexInput" placeholder="i_(.)"><br>
+    <input id="regexOutput" placeholder="k_$1"><br>
+    <button onclick = 'browser_encrypt()' id = 'btn1' >encrypt</button>
+    <div class = 'container'>
+        <div><p><span id="demo0"></span><b id="demo1"></b></p>
+        </div>
+    </div>
+    
+
+</body>
+</html>
