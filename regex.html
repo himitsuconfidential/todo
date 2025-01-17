@@ -21,9 +21,12 @@
             border-width: 3px;
             border-color: silver;
             background-color: lightcyan;
-            padding: 30px 10px 30px 10px;
+            padding: 20px;
             border-radius: 4px;
             width: 80vw;
+        }
+        pre{
+            margin: 0
         }
         button{
             font-size:16px;
@@ -51,32 +54,45 @@
             border-radius: 4px;
             padding: 10px;
         }
-        input{
+        #regexInput, #regexOutput{
             font-size:16px;
             height: 30px;
             width: 80vw
         }
-
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .checkbox-container label {
+            margin-left: 10px;
+            font-size: 16px;
+        }
 
     </style>
     <script type="text/javascript">
 
-    function browser_encrypt(){
+    function browser_replace(){
+        var flag = document.getElementById("case").checked ? 'gi' : 'g';
         var text = document.getElementById("text").value;
         var regexInput = document.getElementById("regexInput").value;
         var regexOutput = document.getElementById("regexOutput").value;
         document.getElementById("demo0").innerText = '';
-        document.getElementById("demo1").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, 'g'),regexOutput) + "</pre>";
+        document.getElementById("demo1").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, flag),regexOutput) + "</pre>";
     }
 
     </script>
 </head>
 <body>
     
-    <textarea id="text" rows = "5" placeholder="enter text to be replaced i_1 i_3"></textarea><br>
-    <input id="regexInput" placeholder="i_(.)"><br>
-    <input id="regexOutput" placeholder="k_$1"><br>
-    <button onclick = 'browser_encrypt()' id = 'btn1' >encrypt</button>
+    <textarea id="text" rows = "5" placeholder="enter text to be replaced i_1 i_3" onchange="browser_replace()"></textarea><br>
+    <input id="regexInput" placeholder="i_(.)" onchange="browser_replace()"><br>
+    <input id="regexOutput" placeholder="k_$1" onchange="browser_replace()"><br>
+    <button onclick = 'browser_replace()' id = 'btn1' >replace</button>
+    <div class="checkbox-container">
+        <input type="checkbox" id="case" onchange="browser_replace()">
+        <label for="case">Case Insensitive</label>
+    </div>
     <div class = 'container'>
         <div><p><span id="demo0"></span><b id="demo1"></b></p>
         </div>
