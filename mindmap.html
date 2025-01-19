@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Mind Map</title>
+    <style>
+        /* General Styles */
+        body {
+             font-family: Arial, sans-serif;
+             background-color: #f4f4f4;
+             margin: 0;
+             padding: 0;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             height: 100vh;
+         }
+ 
+         h1 {
+             text-align: center;
+             margin-bottom: 20px;
+             color: #333;
+         }
+ 
+         /* Container Layout */
+         .container {
+             width: 90%;
+             max-width: 1500px;
+             min-width: 1000px;
+             background: white;
+             padding: 20px;
+             border-radius: 8px;
+             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+         }
+ 
+         .content {  
+             display: flex;
+             gap: 20px;
+         }
+ 
+         /* Input Section */
+         .input-section {
+             width: 30%; /* Fixed width for input section */
+             display: flex;
+             flex-direction: column;
+         }
+ 
+         textarea {
+             width: 98%;
+             height: 600px;
+             margin-bottom: 10px;
+             padding: 10px;
+             border-radius: 4px;
+             border: 1px solid #ccc;
+             resize: none;
+             font-size: 14px;
+         }
+ 
+         button {
+             padding: 10px 20px;
+             border: none;
+             background-color: #28a745;
+             color: white;
+             border-radius: 4px;
+             cursor: pointer;
+             font-size: 16px;
+         }
+ 
+         button:hover {
+             background-color: #218838;
+         }
+ 
+         /* Output Section Container */
+         .output-container {
+             width: 70%; /* Fixed width for output container */
+         }
+ 
+         /* Output Section */
+         .output-section {
+             border: 1px solid #ccc;
+             border-radius: 4px;
+             overflow: auto;
+             background-color: #fff;
+             height: 600px;
+             position: relative;
+         }
+ 
+         canvas {
+             display: block;
+             position: absolute;
+             top: 0;
+             left: 0;
+             min-width: 500px;
+             height: auto;
+         }
+     </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="content">
+            
+            <div class="input-section">
+                <h1>Text</h1>
+                <textarea id="textInput" placeholder="Enter your text here..."></textarea>
+                <button onclick="generateMindMap()">Generate Mind Map</button>
+            </div>
+            <div class="output-container">
+                <h1>Chart</h1>
+                <div class="output-section">
+                    
+                <canvas id="mindMapCanvas" width="2000" height="2000"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    function generateMindMap() {
+    const textInput = document.getElementById('textInput').value;
+    const canvas = document.getElementById('mindMapCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (textInput.trim() === '') {
+        alert('Please enter some text.');
+        return;
+    }
+
+    // Parse the input and build the tree structure
+    const lines = textInput.split('\n');
+    const root = { level: -1, children: [], x: 0, y: 0 };
+    const stack = [root];
+
+    console.log("Parsing input and building tree...");
+    lines.forEach((line, index) => {
+        if (line.trim() === '') return;
+
+        // Count the number of '>' to determine the level
+        const level = (line.match(/^>*/g) || [''])[0].length;
+        const text = line.replace(/^>*/g,'').trim();
+
+        console.log(`Line ${index + 1}: Level = ${level}, Text = "${text}"`);
+
+        // Pop from the stack until we reach the correct parent level
+        while (stack.length > level + 1) {
+            stack.pop();
+        }
+
+        // Create a new node
+        const node = { text, level, children: [], x: 0, y: 0 };
+        stack[stack.length - 1].children.push(node);
+        stack.push(node);
+
+        console.log(`Added node:`, node);
+    });
+
+    console.log("Tree structure:", root);
+
+    // Assign positions to each node
+    const baseX = 50;
+    const baseY = 50;
+    const horizontalSpacing = 15;
+    const verticalSpacing = 50; // Adjusted for better spacing
+    const nodeHeight = 40;
+
+    // Function to calculate the height of a subtree
+    var currentY = 50; // Global variable
+
+    // Function to assign positions to nodes
+    function assignPositions(nodes, x) {
+        var idx = 1;
+        for (var node of nodes) {
+            ctx.font = '14px Arial';
+            var textWidth = ctx.measureText(node.text).width;
+            var boxWidth = Math.max(textWidth + 20, 150);
+            if (idx > 1) currentY += nodeHeight + verticalSpacing;
+            node.x = x;
+            node.y = currentY;
+
+            idx++;
+            console.log(`Assigned position to "${node.text}": (${node.x}, ${node.y})`);
+            assignPositions(node.children, node.x + boxWidth + horizontalSpacing);
+        }
+    }
+
+    assignPositions(root.children, baseX, baseY);
+
+    // Set canvas height based on the total height of root's children
+    canvas.height = currentY + verticalSpacing + baseY;
+
+    console.log("Canvas height set to:", canvas.height);
+
+    // Draw the mind map
+    function drawMindMap(node) {
+        // Calculate the width of the box based on the text length
+        ctx.font = '14px Arial';
+        const textWidth = ctx.measureText(node.text).width;
+        const boxWidth = Math.max(textWidth + 20, 150); // Minimum width of 150px
+
+        // Draw the rectangle
+        ctx.strokeStyle = '#333';
+        ctx.strokeRect(node.x, node.y, boxWidth, nodeHeight);
+        
+        // Draw the text
+        
+        ctx.fillStyle = '#000';
+        ctx.fillText(node.text, node.x + 10, node.y + 25);
+
+        console.log(`Drawn node: "${node.text}" at (${node.x}, ${node.y})`);
+
+        // Draw arrows and map to children
+        node.children.forEach((child) => {
+            drawArrow(ctx, node, child);
+            drawMindMap(child);
+        });
+    }
+
+    // Function to draw arrows with right-angle bends
+    function drawArrow(ctx, parent, child) {
+        // Calculate the width of the parent box
+        const parentTextWidth = ctx.measureText(parent.text).width;
+        const parentBoxWidth = Math.max(parentTextWidth + 20, 150);
+
+        // Horizontal line (from parent to child's vertical position)
+        ctx.beginPath();
+        ctx.moveTo(parent.x + parentBoxWidth, parent.y + nodeHeight / 2);
+        ctx.lineTo(parent.x + parentBoxWidth, child.y + nodeHeight / 2);
+        ctx.lineTo(child.x, child.y + nodeHeight / 2);
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(child.x, child.y + nodeHeight / 2);
+        ctx.lineTo(child.x - 5, child.y + nodeHeight / 2 - 5);
+        ctx.lineTo(child.x - 5, child.y + nodeHeight / 2 + 5);
+        ctx.closePath();
+        ctx.fillStyle = '#333';
+        ctx.fill();
+
+        console.log(`Drawn arrow from "${parent.text}" to "${child.text}"`);
+    }
+
+    // Start drawing the mind map
+    root.children.forEach((node) => {
+        drawMindMap(node);
+    });
+}
+    </script>
+</body>
+</html>
