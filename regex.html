@@ -21,7 +21,7 @@
             border-width: 3px;
             border-color: silver;
             background-color: lightcyan;
-            padding: 20px;
+            padding: 10px;
             border-radius: 4px;
             width: 80vw;
         }
@@ -68,7 +68,9 @@
             margin-left: 10px;
             font-size: 16px;
         }
-
+        span{
+            background-color: yellow;
+        }
     </style>
     <script type="text/javascript">
 
@@ -77,24 +79,31 @@
         var text = document.getElementById("text").value;
         var regexInput = document.getElementById("regexInput").value;
         var regexOutput = document.getElementById("regexOutput").value;
-        document.getElementById("demo0").innerText = '';
-        document.getElementById("demo1").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, flag),regexOutput) + "</pre>";
+        document.getElementById("output").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, flag),`<span>${regexOutput}</span>`) + "</pre>";
     }
-
+    function copy(){
+        var text = document.getElementById("output").innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            alert("copied to clipboard!")});
+    }
     </script>
 </head>
 <body>
     
-    <textarea id="text" rows = "5" placeholder="enter text to be replaced i_1 i_3" onchange="browser_replace()"></textarea><br>
-    <input id="regexInput" placeholder="i_(.)" onchange="browser_replace()"><br>
-    <input id="regexOutput" placeholder="k_$1" onchange="browser_replace()"><br>
+    <textarea id="text" rows = "5" placeholder="enter text to be replaced e.g. copy C:\myfolder\report.pdf" onchange="browser_replace()"></textarea><br>
+    <input id="regexInput" placeholder="(C:.*)\." onchange="browser_replace()"><br>
+    <input id="regexOutput" placeholder="$1_2024." onchange="browser_replace()"><br>
     <button onclick = 'browser_replace()' id = 'btn1' >replace</button>
     <div class="checkbox-container">
         <input type="checkbox" id="case" onchange="browser_replace()">
         <label for="case">Case Insensitive</label>
     </div>
     <div class = 'container'>
-        <div><p><span id="demo0"></span><b id="demo1"></b></p>
+        <div>
+            <p>
+                <button id="copy" onclick="copy()">copy</button>
+                <b id="output"></b>
+            </p>
         </div>
     </div>
     
