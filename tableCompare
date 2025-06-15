@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>(Tab Separated) Table Comparing Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .match-cell {
+      background-color: #d4edda !important; /* green */
+      cursor: pointer;
+    }
+    .type-mismatch-cell {
+      background-color: #fff3cd !important; /* yellow */
+      cursor: pointer;
+    }
+    .mismatch-cell {
+      background-color: #f8d7da !important; /* red */
+      cursor: pointer;
+    }
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      background: #f9fafb;
+      z-index: 2;
+    }
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      background: #f9fafb;
+      z-index: 1;
+    }
+    .coordinate-header {
+      font-weight: bold;
+      background: #e5e7eb;
+      text-align: center;
+    }
+    .comparison-table-wrapper {
+      max-height: 500px;
+      max-width: 100vw;
+      overflow: auto;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      background: d1d5db;
+    }
+    .comparison-table {
+      border-collapse: collapse;
+      min-width: 800px;
+    }
+    .comparison-table th, .comparison-table td {
+      border: 1px solid #d1d5db;
+      padding: 0.5rem;
+      min-width: 80px;
+      max-width: 200px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.95rem;
+    }
+    /* Details table styles */
+    .details-table th, .details-table td {
+      border: 1px solid #d1d5db;
+      padding: 0.5rem;
+      font-family: monospace;
+      font-size: 0.95rem;
+      background: #f9fafb;
+    }
+    .details-table th {
+      background: #e5e7eb;
+      font-weight: bold;
+    }
+
+
+    /* === General Layout === */
+    body {
+      padding: 2rem;
+      background-color: #f3f4f6;
+      font-family: system-ui, sans-serif;
+      font-size: 16px;
+      color: #222;
+    }
+
+    .max-w-7xl {
+      max-width: 80rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    /* === Spacing Utilities === */
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    .p-2 { padding: 0.5rem; }
+    .p-4 { padding: 1rem; }
+    .p-8 { padding: 2rem; }
+    .rounded { border-radius: 0.375rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .block { display: block; }
+    .w-full { width: 100%; }
+    .flex { display: flex; }
+    .flex-1 { flex: 1 1 0%; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .flex-wrap { flex-wrap: wrap; }
+    .gap-4 { gap: 1rem; }
+    .items-center { align-items: center; }
+    .font-bold { font-weight: bold; }
+    .font-semibold { font-weight: 600; }
+    .font-mono { font-family: monospace; }
+    .text-base { font-size: 1rem; }
+    .text-xl { font-size: 1.25rem; }
+    .text-3xl { font-size: 2rem; }
+    .text-green-700 { color: #047857; }
+    .text-red-700 { color: #b91c1c; }
+    .text-yellow-700 { color: #b45309; }
+    .text-white { color: #fff; }
+    .bg-gray-100 { background-color: #f3f4f6; }
+    .bg-gray-50 { background-color: #f9fafb; }
+    .bg-blue-500 { background-color: #3b82f6; }
+    .bg-blue-600 { background-color: #2563eb; }
+    .border { border: 1px solid #d1d5db; }
+    .border-gray-200 { border-color: #e5e7eb; }
+
+    /* === Responsive Design === */
+    @media (min-width: 640px) {
+      .sm\:flex-row { flex-direction: row; }
+    }
+
+    /* === Form Elements === */
+    textarea, select, input[type="text"] {
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      padding: 0.5rem;
+      font-family: monospace;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+      background: #fff;
+      color: #222;
+      margin-bottom: 0.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    select {
+      width: auto;
+      min-width: 120px;
+    }
+
+    /* === Button Styles === */
+    button {
+      padding: 0.5rem 1rem;
+      background-color: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 0.375rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+
+    /* === Table Styles === */
+    .comparison-table-wrapper {
+      max-height: 500px;
+      max-width: 100vw;
+      overflow: auto;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      background: #d1d5db;
+    }
+
+    .comparison-table {
+      border-collapse: collapse;
+      min-width: 800px;
+      width: 100%;
+    }
+
+    .comparison-table th, .comparison-table td {
+      border: 1px solid #d1d5db;
+      padding: 0.5rem;
+      min-width: 80px;
+      max-width: 200px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    .details-table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    .details-table th, .details-table td {
+      border: 1px solid #d1d5db;
+      padding: 0.5rem;
+      font-family: monospace;
+      font-size: 0.95rem;
+      background: #f9fafb;
+    }
+
+    .details-table th {
+      background: #e5e7eb;
+      font-weight: bold;
+    }
+
+    /* === Table Header/Sticky Styles === */
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      background: #f9fafb;
+      z-index: 2;
+    }
+
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      background: #f9fafb;
+      z-index: 1;
+    }
+
+    .coordinate-header {
+      font-weight: bold;
+      background: #e5e7eb;
+      text-align: center;
+    }
+
+    /* === Cell Highlighting === */
+    .match-cell {
+      background-color: #d4edda !important; /* green */
+      cursor: pointer;
+    }
+    .type-mismatch-cell {
+      background-color: #fff3cd !important; /* yellow */
+      cursor: pointer;
+    }
+    .mismatch-cell {
+      background-color: #f8d7da !important; /* red */
+      cursor: pointer;
+    }
+
+    /* === Utility Classes for Hidden === */
+    .hidden {
+      display: none !important;
+    }
+
+    /* === Miscellaneous === */
+    i {
+      color: #888;
+    }
+  </style>
+</head>
+<body class="p-8 bg-gray-100">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">(Tab Separated) Table Comparing Tool</h1>
+    
+    <div class="mb-6 space-y-4">
+      <div class="flex gap-4 flex-col sm:flex-row">
+        <div class="flex-1">
+          <label class="block mb-2" for="tsvA">Table Left:</label>
+          <textarea id="tsvA" rows="8" class="block w-full p-2 border rounded font-mono text-base" placeholder="Paste Table Left here"></textarea>
+        </div>
+        <div class="flex-1">
+          <label class="block mb-2" for="tsvB">Table Right:</label>
+          <textarea id="tsvB" rows="8" class="block w-full p-2 border rounded font-mono text-base" placeholder="Paste Table Right here"></textarea>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-4 items-center">
+        <div>
+          <label for="numberMode" class="mr-2 font-semibold">Number Cell Display:</label>
+          <select id="numberMode" class="border rounded p-1">
+            <option value="a-b">Left - Right</option>
+            <option value="a-b-div-b">(Left - Right) / Right</option>
+            <option value="b-a-div-a">(Right - Left) / Left</option>
+            <option value="a-vs-b">Left vs Right</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="textMode" class="mr-2 font-semibold">Text Cell Display:</label>
+          <select id="textMode" class="border rounded p-1">
+            <option value="a">Left</option>
+            <option value="b">Right</option>
+            <option value="a-vs-b">Left vs Right</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="typeMismatchMode" class="mr-2 font-semibold">Type Mismatch Display:</label>
+          <select id="typeMismatchMode" class="border rounded p-1">
+            <option value="type-mismatch">Type mismatch</option>
+            <option value="a">Left</option>
+            <option value="b">Right</option>
+            <option value="a-vs-b">Left vs Right</option>
+          </select>
+        </div>
+        <button id="compareBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+          Compare
+        </button>
+      </div>
+    </div>
+
+    <div id="result" class="hidden">
+      <h2 class="text-xl font-semibold mb-4">Comparison Results</h2>
+      <div id="summary" class="mb-4 p-4 bg-gray-50 rounded border border-gray-200 text-base"></div>
+      <div id="detailsTableWrapper" class="mb-4 hidden">
+        <table class="details-table w-full">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Table Left</th>
+              <th>Table Right</th>
+              <th>Comparison</th>
+              <th>Difference</th>
+            </tr>
+          </thead>
+          <tbody id="detailsTableBody"></tbody>
+        </table>
+      </div>
+      <div class="comparison-table-wrapper">
+        <table class="comparison-table" id="comparisonTable">
+          <!-- Table will be generated here -->
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // initialize textbox
+    document.getElementById('tsvA').value = 'Year\tBalance\n1\t100\n2\t104';
+    document.getElementById('tsvB').value = 'Year\tBalance\tReturn\n1\t100\tNot Given\n2\t105\t5%\n3\t107.1\t2%';
+    // Utility function to parse TSV (simple, does not handle quoted commas)
+    function parseTSV(tsv) {
+      return tsv
+        .trim()
+        .split('\n')
+        .map(row => row.split('\t').map(cell => cell.trim()));
+    }
+
+    // Convert column index to Excel-like column letters (A, B, ..., Z, AA, AB, ...)
+    function colIndexToLetters(index) {
+      let letters = '';
+      index += 1; // 1-based
+      while (index > 0) {
+        let rem = (index - 1) % 26;
+        letters = String.fromCharCode(65 + rem) + letters;
+        index = Math.floor((index - 1) / 26);
+      }
+      return letters;
+    }
+    function parseFloatOrPercent(str){
+      return (str.charAt(str.length - 1) === '%')? 
+        parseFloat(+str.slice(0, -1).replace(/(?<=\d),(?=\d{3}\b)/g, '')) / 100 :
+        parseFloat(+str.replace(/(?<=\d),(?=\d{3}\b)/g, ''));
+    }
+    function formatPercent(val) {
+      if (val === 'NA') return 'NA';
+      return (parseFloatOrPrecent(val) * 100).toFixed(2) + '%';
+    }
+
+    function compareCells(cellA, cellB, textMode, numberMode, typeMismatchMode) {
+      const numA = (cellA !== '')? parseFloatOrPercent(cellA) : 0;
+      const numB = (cellB !== '')? parseFloatOrPercent(cellB) : 0;
+      const isNumA = !isNaN(numA) && cellA !== '';
+      const isNumB = !isNaN(numB) && cellB !== '';
+
+      if (cellA === '' && cellB === '') {
+        return { result: '', className: 'match-cell', type: 'empty', match: true, diff: '', cmpLabel: 'empty match', displayA: cellA, displayB: cellB };
+      }
+
+      if (isNumA && isNumB) {
+        let result, diff, cmpLabel;
+        switch (numberMode) {
+          case 'a-b':
+            diff = (numA - numB).toFixed(2);
+            result = diff;
+            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            break;
+          case 'a-b-div-b':
+            if (numB === 0) {
+              diff = (numA === 0)?  '0.00%': 'NA';
+            } else {
+              diff = (100*(numA - numB) / numB).toFixed(2) + '%';
+            }
+            result = diff;
+            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            break;
+          case 'b-a-div-a':
+            if (numA === 0) {
+              diff = (numB === 0)?  '0.00%': 'NA';
+            } else {
+              diff = (100*(numB - numA) / numA).toFixed(2) + '%';
+            }
+            result = diff;
+            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            break;
+          case 'a-vs-b':
+            diff = `${cellA} vs ${cellB}`;
+            result = diff;
+            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            break;
+          default:
+            diff = (numA - numB).toFixed(2);
+            result = diff;
+            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+        }
+        return {
+          result,
+          className: (numA === numB) ? 'match-cell' : 'mismatch-cell',
+          type: 'number',
+          match: numA === numB,
+          diff,
+          cmpLabel,
+          displayA: cellA,
+          displayB: cellB
+        };
+      } else if (isNumA !== isNumB) {
+        // Type mismatch
+        let result;
+        switch (typeMismatchMode) {
+          case 'type-mismatch':
+            result = 'Type mismatch';
+            break;
+          case 'a':
+            result = cellA;
+            break;
+          case 'b':
+            result = cellB;
+            break;
+          case 'a-vs-b':
+            result = `${cellA} vs ${cellB}`;
+            break;
+          default:
+            result = cellA;
+        }
+        return {
+          result: result,
+          className: 'type-mismatch-cell',
+          type: 'type-mismatch',
+          match: false,
+          diff: '',
+          cmpLabel: 'type mismatch',
+          displayA: cellA,
+          displayB: cellB
+        };
+      } else {
+        // Both are text
+        let result, cmpLabel;
+        switch (textMode) {
+          case 'a':
+            result = cellA;
+            break;
+          case 'b':
+            result = cellB;
+            break;
+          case 'a-vs-b':
+            result = `${cellA} vs ${cellB}`;
+            break;
+          default:
+            result = cellA;
+        }
+        cmpLabel = (cellA === cellB) ? 'text match' : 'text mismatch';
+        return {
+          result,
+          className: (cellA === cellB) ? 'match-cell' : 'mismatch-cell',
+          type: 'text',
+          match: cellA === cellB,
+          diff: '',
+          cmpLabel,
+          displayA: cellA,
+          displayB: cellB
+        };
+      }
+    }
+
+    function displayResults2D(rowsA, rowsB) {
+      const resultDiv = document.getElementById('result');
+      const table = document.getElementById('comparisonTable');
+      const summaryDiv = document.getElementById('summary');
+      const textMode = document.getElementById('textMode').value;
+      const numberMode = document.getElementById('numberMode').value;
+      const typeMismatchMode = document.getElementById('typeMismatchMode').value;
+      resultDiv.classList.remove('hidden');
+
+      const maxRows = Math.max(rowsA.length, rowsB.length);
+      const maxCols = Math.max(
+        ...[rowsA, rowsB].map(rows => rows.reduce((max, row) => Math.max(max, row.length), 0))
+      );
+
+      // Summary counters
+      let minError = 0, maxError = 0, numMatch = 0, numMismatch = 0, textMatch = 0, textMismatch = 0, typeMismatch = 0;
+
+      // Build table header
+      let thead = '<thead><tr>';
+      thead += '<th class="sticky-header coordinate-header"></th>'; // Top-left corner
+      for (let col = 0; col < maxCols; col++) {
+        thead += `<th class="sticky-header coordinate-header">${colIndexToLetters(col)}</th>`;
+      }
+      thead += '</tr></thead>';
+
+      // Build table body
+      let tbody = '<tbody>';
+      for (let row = 0; row < maxRows; row++) {
+        tbody += '<tr>';
+        // Row header (number, sticky)
+        tbody += `<th class="sticky-col coordinate-header">${row + 1}</th>`;
+        for (let col = 0; col < maxCols; col++) {
+          const cellA = (rowsA[row] && rowsA[row][col]) ? rowsA[row][col] : '';
+          const cellB = (rowsB[row] && rowsB[row][col]) ? rowsB[row][col] : '';
+          const cmp = compareCells(cellA, cellB, textMode, numberMode, typeMismatchMode);
+
+          // Count for summary
+          if (cmp.type === 'number') {
+            if (cmp.match) numMatch++;
+            else {numMismatch++;
+              var valdiff = parseFloatOrPercent(cmp.diff);
+              if (valdiff < minError) minError = valdiff;
+              if (valdiff > maxError) maxError = valdiff;
+            }
+          } else if (cmp.type === 'text') {
+            if (cmp.match) textMatch++;
+            else textMismatch++;
+          } else if (cmp.type === 'type-mismatch') {
+            typeMismatch++;
+          }
+
+          // Add cell with data attributes for details table
+          tbody += `<td class="${cmp.className}" 
+            data-row="${row}" data-col="${col}" 
+            data-tsv-a="${encodeURIComponent(cmp.displayA)}" 
+            data-tsv-b="${encodeURIComponent(cmp.displayB)}"
+            data-cmp-label="${cmp.cmpLabel}"
+            data-diff="${cmp.diff}"
+            onclick="showCellDetail(event, ${row}, ${col})"
+            >${cmp.result}</td>`;
+        }
+        tbody += '</tr>';
+      }
+      tbody += '</tbody>';
+
+      table.innerHTML = thead + tbody;
+
+      // Show summary
+      minError = (numberMode === 'a-b-div-b' || numberMode === 'b-a-div-a') ? (minError * 100).toFixed(2) + '%' : minError.toFixed(2);
+      maxError = (numberMode === 'a-b-div-b' || numberMode === 'b-a-div-a') ? (maxError * 100).toFixed(2) + '%' : maxError.toFixed(2);
+      summaryDiv.innerHTML = `
+        <span class="mr-4"><span class="font-semibold text-black-700">Error range:</span> ${minError} ~ ${maxError}</span>
+        <span class="mr-4"><span class="font-semibold text-green-700">Number match:</span> ${numMatch}</span>
+        <span class="mr-4"><span class="font-semibold text-red-700">Number mismatch:</span> ${numMismatch}</span>
+        <span class="mr-4"><span class="font-semibold text-green-700">Text match:</span> ${textMatch}</span>
+        <span class="mr-4"><span class="font-semibold text-red-700">Text mismatch:</span> ${textMismatch}</span>
+        <span class="mr-4"><span class="font-semibold text-yellow-700">Type mismatch:</span> ${typeMismatch}</span>
+      `;
+
+      // Hide details table on new compare
+      document.getElementById('detailsTableWrapper').classList.add('hidden');
+      document.getElementById('detailsTableBody').innerHTML = '';
+
+      // Scroll to bottom of page
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    }
+
+    function compareTSVs() {
+      const tsvA = document.getElementById('tsvA').value;
+      const tsvB = document.getElementById('tsvB').value;
+
+      if (!tsvA.trim() || !tsvB.trim()) {
+        alert('Please paste both TSV contents.');
+        return;
+      }
+
+      const rowsA = parseTSV(tsvA);
+      const rowsB = parseTSV(tsvB);
+
+      displayResults2D(rowsA, rowsB);
+    }
+
+    document.getElementById('compareBtn').addEventListener('click', compareTSVs);
+    document.getElementById('textMode').addEventListener('change', compareTSVs);
+    document.getElementById('numberMode').addEventListener('change', compareTSVs);
+    document.getElementById('typeMismatchMode').addEventListener('change', compareTSVs);
+
+    // Show details in table below summary
+    function showCellDetail(event, row, col) {
+      event.stopPropagation();
+      const td = event.currentTarget;
+      const cellA = decodeURIComponent(td.getAttribute('data-tsv-a') || '');
+      const cellB = decodeURIComponent(td.getAttribute('data-tsv-b') || '');
+      const cmpLabel = td.getAttribute('data-cmp-label') || '';
+      const diff = td.getAttribute('data-diff') || '';
+      const colLetter = colIndexToLetters(col);
+      const rowNum = row + 1;
+      const address = `${colLetter}${rowNum}`;
+      const detailsTableWrapper = document.getElementById('detailsTableWrapper');
+      const detailsTableBody = document.getElementById('detailsTableBody');
+
+      // Only show one row at a time (replace)
+      detailsTableBody.innerHTML = `
+        <tr>
+          <td>${address}</td>
+          <td>${cellA === '' ? '<i>(empty)</i>' : escapeHtml(cellA)}</td>
+          <td>${cellB === '' ? '<i>(empty)</i>' : escapeHtml(cellB)}</td>
+          <td>${cmpLabel}</td>
+          <td>${diff}</td>
+        </tr>
+      `;
+      detailsTableWrapper.classList.remove('hidden');
+    }
+
+    // Escape HTML for safe display
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, function(m) {
+        return ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[m];
+      });
+    }
+
+    // Expose for inline onclick
+    window.showCellDetail = showCellDetail;
+  </script>
+</body>
+</html>
