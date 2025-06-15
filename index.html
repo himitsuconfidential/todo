@@ -72,8 +72,8 @@
     <div class="section">
         <h2>Log</h2>
         <button class="copy-button" onclick="copyTableToClipboard('log-table')">Copy Log Table</button>
-        <button class="add-button" onclick="addRow('log', ['Start Time', 'End Time', 'Flow', 'Task', 'Path'])">Add Log</button>
-        <table id="log-table"><thead><tr><th>Start Time</th><th>End Time</th><th>Flow</th><th>Task</th><th>Path</th></tr></thead><tbody></tbody></table>
+        <button class="add-button" onclick="addRow('log', ['Start Time', 'Flow', 'Path'])">Add Log</button>
+        <table id="log-table"><thead><tr><th>Start Time</th><th>Flow</th><th>Path</th></tr></thead><tbody></tbody></table>
     </div>
 
     <script>
@@ -99,7 +99,7 @@
 
         const copyPath = button => {
             const row = button.closest('tr');
-            const pathCell = row.cells[4]; // Path is the 5th cell (index 4)
+            const pathCell = row.cells[2]; // Path is the 3th cell (index 2)
             const path = pathCell.querySelector('input').value;
             navigator.clipboard.writeText(path).then(() => {
                 alert("Path copied to clipboard!");
@@ -126,7 +126,7 @@
                     <button class="delete-button" onclick="deleteRow(this)">Delete</button>
                 `;
                 if (type === 'log'){
-                    actionsCell.innerHTML+= `<button class="end-now-button" onclick="endNow(this)">End Now</button> 
+                    actionsCell.innerHTML+= `
                     <button class="copy-path-button" onclick="copyPath(this)">Copy Path</button>`
                 }
                     
@@ -200,7 +200,7 @@
 
         window.onload = () => {
             populateTable('mission', ['Deadline', 'Task']);
-            populateTable('log', ['Start Time', 'End Time', 'Flow', 'Task', 'Path']);
+            populateTable('log', ['Start Time', 'Flow', 'Path']);
         };
 
         window.addEventListener('blur', () => {
