@@ -265,6 +265,8 @@
     i {
       color: #888;
     }
+    del {background-color: silver;}
+    ins {background-color: yellow;}
   </style>
 </head>
 <body class="p-8 bg-gray-100">
@@ -289,26 +291,26 @@
             <option value="a-b">Left - Right</option>
             <option value="a-b-div-b">(Left - Right) / Right</option>
             <option value="b-a-div-a">(Right - Left) / Left</option>
-            <option value="a-vs-b">Left vs Right</option>
+            <option value="a-vs-b"> L̶e̶f̶t̶ Right</del></option>
           </select>
         </div>
 
-        <div>
+        <div hidden>
           <label for="textMode" class="mr-2 font-semibold">Text Cell Display:</label>
           <select id="textMode" class="border rounded p-1">
+            <option value="a-vs-b">L̶e̶f̶t̶ Right</option>
             <option value="a">Left</option>
             <option value="b">Right</option>
-            <option value="a-vs-b">Left vs Right</option>
           </select>
         </div>
         
-        <div>
+        <div hidden>
           <label for="typeMismatchMode" class="mr-2 font-semibold">Type Mismatch Display:</label>
           <select id="typeMismatchMode" class="border rounded p-1">
+            <option value="a-vs-b">L̶e̶f̶t̶ Right</option>
             <option value="type-mismatch">Type mismatch</option>
             <option value="a">Left</option>
             <option value="b">Right</option>
-            <option value="a-vs-b">Left vs Right</option>
           </select>
         </div>
         <button id="compareBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
@@ -344,12 +346,11 @@
 
   <script>
     // initialize textbox
-    document.getElementById('tsvA').value = 'Year\tBalance\n1\t100\n2\t104';
-    document.getElementById('tsvB').value = 'Year\tBalance\tReturn\n1\t100\tNot Given\n2\t105\t5%\n3\t107.1\t2%';
+    document.getElementById('tsvA').value = 'Year\tBalance\tReturn\n1\t100\tNot Given\n2\t104\t4';
+    document.getElementById('tsvB').value = 'Year\tBalance\tReturn rate\n1\t100\tNot Given\n2\t105\t5%\n3\t107.1\t2%';
     // Utility function to parse TSV (simple, does not handle quoted commas)
     function parseTSV(tsv) {
       return tsv
-        .trim()
         .split('\n')
         .map(row => row.split('\t').map(cell => cell.trim()));
     }
@@ -366,9 +367,13 @@
       return letters;
     }
     function parseFloatOrPercent(str){
-      return (str.charAt(str.length - 1) === '%')? 
-        parseFloat(+str.slice(0, -1).replace(/(?<=\d),(?=\d{3}\b)/g, '')) / 100 :
-        parseFloat(+str.replace(/(?<=\d),(?=\d{3}\b)/g, ''));
+      if (str === '-')
+        return 0
+      if (str.charAt(str.length - 1) === '%')
+        return parseFloat(+str.slice(0, -1)) / 100
+      if (str.charAt(0) === '(' && str.charAt(str.length - 1) === ')')
+        return parseFloat(+str.slice(1, -1).replace(/(?<=\d),(?=\d{3}\b)/g, ''));
+      return parseFloat(+str.replace(/(?<=\d),(?=\d{3}\b)/g, ''))
     }
     function formatPercent(val) {
       if (val === 'NA') return 'NA';
@@ -412,7 +417,7 @@
             cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
             break;
           case 'a-vs-b':
-            diff = `${cellA} vs ${cellB}`;
+            diff = (cellA === cellB)? cellA: `<del>${cellA}</del> <ins>${cellB}</ins>`;
             result = diff;
             cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
             break;
@@ -445,10 +450,10 @@
             result = cellB;
             break;
           case 'a-vs-b':
-            result = `${cellA} vs ${cellB}`;
+            result = (cellA === cellB)? cellA: `<del>${cellA}</del> <ins>${cellB}</ins>`;
             break;
           default:
-            result = cellA;
+            result = (cellA === cellB)? cellA: `<del>${cellA}</del> <ins>${cellB}</ins>`;
         }
         return {
           result: result,
@@ -471,10 +476,10 @@
             result = cellB;
             break;
           case 'a-vs-b':
-            result = `${cellA} vs ${cellB}`;
+            result = (cellA === cellB)? cellA: `<del>${cellA}</del> <ins>${cellB}</ins>`;
             break;
           default:
-            result = cellA;
+            result = (cellA === cellB)? cellA: `<del>${cellA}</del> <ins>${cellB}</ins>`;
         }
         cmpLabel = (cellA === cellB) ? 'text match' : 'text mismatch';
         return {
