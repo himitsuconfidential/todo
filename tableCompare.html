@@ -139,7 +139,7 @@
     }
 
     /* === Form Elements === */
-    textarea, select, input[type="text"] {
+    textarea, select, input[type="text"], input[type="number"] {
       border: 1px solid #d1d5db;
       border-radius: 0.375rem;
       padding: 0.5rem;
@@ -267,6 +267,20 @@
     }
     del {background-color: silver;}
     ins {background-color: yellow;}
+    /* New: file input style */
+    .file-upload-label {
+      display: inline-block;
+      margin-bottom: 0.25rem;
+      font-size: 0.95rem;
+      color: #2563eb;
+      cursor: pointer;
+    }
+    .file-upload-input {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    
   </style>
 </head>
 <body class="p-8 bg-gray-100">
@@ -277,14 +291,25 @@
       <div class="flex gap-4 flex-col sm:flex-row">
         <div class="flex-1">
           <label class="block mb-2" for="tsvA">Table Left:</label>
+          
+          <input type="file" id="fileA" class="file-upload-input" />
           <textarea id="tsvA" rows="8" class="block w-full p-2 border rounded font-mono text-base" placeholder="Paste Table Left here"></textarea>
         </div>
         <div class="flex-1">
           <label class="block mb-2" for="tsvB">Table Right:</label>
+          
+          <input type="file" id="fileB" class="file-upload-input" />
           <textarea id="tsvB" rows="8" class="block w-full p-2 border rounded font-mono text-base" placeholder="Paste Table Right here"></textarea>
         </div>
       </div>
       <div class="flex flex-wrap gap-4 items-center">
+        <!-- Improved tolerance input -->
+        <div class="flex items-center gap-2">
+          <label for="tolerance" class="mr-2 font-semibold">Tolerance:</label>
+          <div class="flex items-center">
+            <input type="number" id="tolerance" class="border rounded p-1" style="width:80px;" value="1" min="0" step="any" />
+          </div>
+        </div>
         <div>
           <label for="numberMode" class="mr-2 font-semibold">Number Cell Display:</label>
           <select id="numberMode" class="border rounded p-1">
@@ -294,7 +319,15 @@
             <option value="a-vs-b"> L̶e̶f̶t̶ Right</del></option>
           </select>
         </div>
-
+        <!-- New filter dropdown -->
+        <div>
+          <label for="filterMode" class="mr-2 font-semibold">Filter:</label>
+          <select id="filterMode" class="border rounded p-1">
+            <option value="all">Show All</option>
+            <option value="mismatch">Show Only Mismatch</option>
+            <option value="number-mismatch">Show Only Number Mismatch</option>
+          </select>
+        </div>
         <div hidden>
           <label for="textMode" class="mr-2 font-semibold">Text Cell Display:</label>
           <select id="textMode" class="border rounded p-1">
@@ -348,6 +381,24 @@
     // initialize textbox
     document.getElementById('tsvA').value = 'Year\tBalance\tReturn\n1\t100\tNot Given\n2\t104\t4';
     document.getElementById('tsvB').value = 'Year\tBalance\tReturn rate\n1\t100\tNot Given\n2\t105\t5%\n3\t107.1\t2%';
+
+    // File upload handlers
+    function handleFileInput(fileInputId, textareaId) {
+      const fileInput = document.getElementById(fileInputId);
+      const textarea = document.getElementById(textareaId);
+      fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          textarea.value = e.target.result;
+        };
+        reader.readAsText(file);
+      });
+    }
+    handleFileInput('fileA', 'tsvA');
+    handleFileInput('fileB', 'tsvB');
+
     // Utility function to parse TSV (simple, does not handle quoted commas)
     function parseTSV(tsv) {
       return tsv
@@ -380,23 +431,25 @@
       return (parseFloatOrPrecent(val) * 100).toFixed(2) + '%';
     }
 
+    
     function compareCells(cellA, cellB, textMode, numberMode, typeMismatchMode) {
       const numA = (cellA !== '')? parseFloatOrPercent(cellA) : 0;
       const numB = (cellB !== '')? parseFloatOrPercent(cellB) : 0;
       const isNumA = !isNaN(numA) && cellA !== '';
       const isNumB = !isNaN(numB) && cellB !== '';
-
+      var tolerance = parseFloatOrPercent(document.getElementById('tolerance').value) || 0;
       if (cellA === '' && cellB === '') {
         return { result: '', className: 'match-cell', type: 'empty', match: true, diff: '', cmpLabel: 'empty match', displayA: cellA, displayB: cellB };
       }
 
       if (isNumA && isNumB) {
         let result, diff, cmpLabel;
+        var isWithinTolerance = (Math.abs(numA - numB) <= tolerance)
         switch (numberMode) {
           case 'a-b':
             diff = (numA - numB).toFixed(2);
             result = diff;
-            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            cmpLabel = (isWithinTolerance) ? 'number match' : 'number mismatch';
             break;
           case 'a-b-div-b':
             if (numB === 0) {
@@ -405,7 +458,7 @@
               diff = (100*(numA - numB) / numB).toFixed(2) + '%';
             }
             result = diff;
-            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            cmpLabel = (isWithinTolerance) ? 'number match' : 'number mismatch';
             break;
           case 'b-a-div-a':
             if (numA === 0) {
@@ -414,23 +467,23 @@
               diff = (100*(numB - numA) / numA).toFixed(2) + '%';
             }
             result = diff;
-            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            cmpLabel = (isWithinTolerance) ? 'number match' : 'number mismatch';
             break;
           case 'a-vs-b':
             diff = (cellA === cellB)? cellA: `<del>${cellA}</del> <ins>${cellB}</ins>`;
             result = diff;
-            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            cmpLabel = (isWithinTolerance) ? 'number match' : 'number mismatch';
             break;
           default:
             diff = (numA - numB).toFixed(2);
             result = diff;
-            cmpLabel = (numA === numB) ? 'number match' : 'number mismatch';
+            cmpLabel =  (isWithinTolerance) ? 'number match' : 'number mismatch';
         }
         return {
           result,
-          className: (numA === numB) ? 'match-cell' : 'mismatch-cell',
+          className: (isWithinTolerance) ? 'match-cell' : 'mismatch-cell',
           type: 'number',
-          match: numA === numB,
+          match: (isWithinTolerance),
           diff,
           cmpLabel,
           displayA: cellA,
@@ -502,6 +555,7 @@
       const textMode = document.getElementById('textMode').value;
       const numberMode = document.getElementById('numberMode').value;
       const typeMismatchMode = document.getElementById('typeMismatchMode').value;
+      const filterMode = document.getElementById('filterMode').value; // NEW
       resultDiv.classList.remove('hidden');
 
       const maxRows = Math.max(rowsA.length, rowsB.length);
@@ -520,21 +574,20 @@
       }
       thead += '</tr></thead>';
 
-      // Build table body
-      let tbody = '<tbody>';
+      const cmpMatrix = [];
       for (let row = 0; row < maxRows; row++) {
-        tbody += '<tr>';
-        // Row header (number, sticky)
-        tbody += `<th class="sticky-col coordinate-header">${row + 1}</th>`;
+        cmpMatrix[row] = [];
         for (let col = 0; col < maxCols; col++) {
           const cellA = (rowsA[row] && rowsA[row][col]) ? rowsA[row][col] : '';
           const cellB = (rowsB[row] && rowsB[row][col]) ? rowsB[row][col] : '';
-          const cmp = compareCells(cellA, cellB, textMode, numberMode, typeMismatchMode);
+          cmpMatrix[row][col] = compareCells(cellA, cellB, textMode, numberMode, typeMismatchMode);
 
           // Count for summary
+          const cmp = cmpMatrix[row][col];
           if (cmp.type === 'number') {
             if (cmp.match) numMatch++;
-            else {numMismatch++;
+            else {
+              numMismatch++;
               var valdiff = parseFloatOrPercent(cmp.diff);
               if (valdiff < minError) minError = valdiff;
               if (valdiff > maxError) maxError = valdiff;
@@ -545,18 +598,35 @@
           } else if (cmp.type === 'type-mismatch') {
             typeMismatch++;
           }
-
-          // Add cell with data attributes for details table
-          tbody += `<td class="${cmp.className}" 
-            data-row="${row}" data-col="${col}" 
-            data-tsv-a="${encodeURIComponent(cmp.displayA)}" 
-            data-tsv-b="${encodeURIComponent(cmp.displayB)}"
-            data-cmp-label="${cmp.cmpLabel}"
-            data-diff="${cmp.diff}"
-            onclick="showCellDetail(event, ${row}, ${col})"
-            >${cmp.result}</td>`;
         }
-        tbody += '</tr>';
+      }
+
+      // Build table body
+      let tbody = '<tbody>';
+      for (let row = 0; row < maxRows; row++) {
+        // Determine if this row should be shown based on filterMode
+        let showRow = true;
+        if (filterMode === 'mismatch') {
+          showRow = cmpMatrix[row].some(cmp => !cmp.match);
+        } else if (filterMode === 'number-mismatch') {
+          showRow = cmpMatrix[row].some(cmp => cmp.type === 'number' && !cmp.match);
+        }
+        if (filterMode === 'all' || showRow) {
+          tbody += '<tr>';
+          tbody += `<th class="sticky-col coordinate-header">${row + 1}</th>`;
+          for (let col = 0; col < maxCols; col++) {
+            const cmp = cmpMatrix[row][col];
+            tbody += `<td class="${cmp.className}" 
+              data-row="${row}" data-col="${col}" 
+              data-tsv-a="${encodeURIComponent(cmp.displayA)}" 
+              data-tsv-b="${encodeURIComponent(cmp.displayB)}"
+              data-cmp-label="${cmp.cmpLabel}"
+              data-diff="${cmp.diff}"
+              onclick="showCellDetail(event, ${row}, ${col})"
+              >${cmp.result}</td>`;
+          }
+          tbody += '</tr>';
+        }
       }
       tbody += '</tbody>';
 
@@ -589,7 +659,7 @@
       const tsvB = document.getElementById('tsvB').value;
 
       if (!tsvA.trim() || !tsvB.trim()) {
-        alert('Please paste both TSV contents.');
+        alert('Contents cannot be empty');
         return;
       }
 
