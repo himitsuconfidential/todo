@@ -101,12 +101,7 @@
             const row = button.closest('tr');
             const pathCell = row.cells[2]; // Path is the 3th cell (index 2)
             const path = pathCell.querySelector('input').value;
-            navigator.clipboard.writeText(path).then(() => {
-                alert("Path copied to clipboard!");
-            }).catch(err => {
-                console.error('Failed to copy path: ', err);
-                alert("Failed to copy path to clipboard.");
-            });
+            window.open(path, "_blank");
         };
 
         const populateTable = (type, columns) => {
@@ -127,7 +122,7 @@
                 `;
                 if (type === 'log'){
                     actionsCell.innerHTML+= `
-                    <button class="copy-path-button" onclick="copyPath(this)">Copy Path</button>`
+                    <button class="copy-path-button" onclick="copyPath(this)">To Path</button>`
                 }
                     
             }
