@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Formula Converter</title>
+    <style>
+        * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 40px;
+    max-width: 800px;
+    width: 100%;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+h1 {
+    color: #333;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 1.1em;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+label {
+    font-weight: 600;
+    color: #333;
+    font-size: 1.1em;
+}
+
+textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    resize: vertical;
+    transition: border-color 0.3s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+textarea:read-only {
+    background-color: #f5f5f5;
+    cursor: default;
+}
+
+select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.error-message {
+    color: #d32f2f;
+    font-size: 0.9em;
+    min-height: 20px;
+    font-weight: 500;
+}
+
+.copy-button {
+    align-self: flex-start;
+    padding: 10px 20px;
+    background-color: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.copy-button:hover {
+    background-color: #5568d3;
+}
+
+.copy-button:active {
+    transform: scale(0.98);
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 20px;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+
+    .subtitle {
+        font-size: 1em;
+    }
+}
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Excel Formula Converter</h1>
+            <p class="subtitle">Convert SUMIFS formulas to SUMPRODUCT or FILTER format</p>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <label for="formula-input">Input Formula</label>
+                <textarea 
+                    id="formula-input" 
+                    placeholder="Enter SUMIFS formula (e.g., =Sumifs(A:A, B:B, $C$1))"
+                    rows="3"
+                ></textarea>
+                <div id="error-message" class="error-message"></div>
+            </section>
+
+            <section class="format-section">
+                <label for="output-format">Output Format</label>
+                <select id="output-format">
+                    <option value="sumproduct">SUMPRODUCT</option>
+                    <option value="filter">FILTER</option>
+                </select>
+            </section>
+
+            <section class="output-section">
+                <label for="formula-output">Converted Formula</label>
+                <textarea 
+                    id="formula-output" 
+                    readonly
+                    rows="3"
+                ></textarea>
+                <button id="copy-button" class="copy-button">Copy to Clipboard</button>
+            </section>
+        </main>
+    </div>
+
+    <script>
+// Excel Formula Converter
+// Converts SUMIFS formulas to SUMPRODUCT or FILTER format
+
+class FormulaConverter {
+    constructor() {
+        this.inputElement = document.getElementById('formula-input');
+        this.outputElement = document.getElementById('formula-output');
+        this.formatElement = document.getElementById('output-format');
+        this.errorElement = document.getElementById('error-message');
+        this.copyButton = document.getElementById('copy-button');
+        
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        this.inputElement.addEventListener('input', () => this.convert());
+        this.formatElement.addEventListener('change', () => this.convert());
+        this.copyButton.addEventListener('click', () => this.copyToClipboard());
+    }
+
+    validateSumifs(formula) {
+        // Remove whitespace and convert to uppercase for validation
+        const cleaned = formula.trim().replace(/\s+/g, '');
+        const upperFormula = cleaned.toUpperCase();
+        
+        // Check if formula starts with = and contains SUMIFS
+        if (!upperFormula.startsWith('=SUMIFS(')) {
+            return { valid: false, error: 'Formula must start with =SUMIFS(' };
+        }
+
+        // Basic validation: check parentheses balance
+        let openCount = 0;
+        for (let char of cleaned) {
+            if (char === '(') openCount++;
+            if (char === ')') openCount--;
+            if (openCount < 0) {
+                return { valid: false, error: 'Invalid parentheses in formula' };
+            }
+        }
+        if (openCount !== 0) {
+            return { valid: false, error: 'Unbalanced parentheses in formula' };
+        }
+
+        return { valid: true };
+    }
+
+    parseSumifs(formula) {
+        // Remove leading = and whitespace
+        let cleaned = formula.trim().replace(/^=/, '').trim();
+        
+        // Extract function name and arguments
+        const match = cleaned.match(/^SUMIFS\s*\((.*)\)$/i);
+        if (!match) {
+            throw new Error('Invalid SUMIFS formula format');
+        }
+
+        const argsString = match[1];
+        
+        // Parse arguments - need to handle commas within quotes and sheet references
+        const args = this.parseArguments(argsString);
+        
+        if (args.length < 3 || args.length % 2 === 0) {
+            throw new Error('SUMIFS requires at least sum_range and one criteria pair (criteria_range, criteria)');
+        }
+
+        const sumRange = args[0].trim();
+        const criteriaPairs = [];
+        
+        for (let i = 1; i < args.length; i += 2) {
+            if (i + 1 < args.length) {
+                criteriaPairs.push({
+                    range: args[i].trim(),
+                    criteria: args[i + 1].trim()
+                });
+            }
+        }
+
+        return {
+            sumRange,
+            criteriaPairs
+        };
+    }
+
+    parseArguments(argsString) {
+        const args = [];
+        let currentArg = '';
+        let depth = 0;
+        let inQuotes = false;
+        let quoteChar = null;
+        let i = 0;
+
+        while (i < argsString.length) {
+            const char = argsString[i];
+            const prevChar = i > 0 ? argsString[i - 1] : '';
+
+            // Handle quoted strings
+            if ((char === '"' || char === "'") && prevChar !== '\\') {
+                if (!inQuotes) {
+                    inQuotes = true;
+                    quoteChar = char;
+                } else if (char === quoteChar) {
+                    inQuotes = false;
+                    quoteChar = null;
+                }
+                currentArg += char;
+            }
+            // Handle parentheses (for nested functions or arrays)
+            else if (char === '(' && !inQuotes) {
+                depth++;
+                currentArg += char;
+            }
+            else if (char === ')' && !inQuotes) {
+                depth--;
+                currentArg += char;
+            }
+            // Handle commas (argument separators)
+            else if (char === ',' && !inQuotes && depth === 0) {
+                args.push(currentArg);
+                currentArg = '';
+            }
+            else {
+                currentArg += char;
+            }
+            i++;
+        }
+
+        // Add the last argument
+        if (currentArg.trim()) {
+            args.push(currentArg);
+        }
+
+        return args;
+    }
+
+    convertCriteria(criteriaRange, criteria) {
+        const trimmedCriteria = criteria.trim();
+        
+        // Handle wildcard patterns (e.g., D1&"*" or D1&'*')
+        const wildcardMatch = trimmedCriteria.match(/^(.+?)\s*&\s*["']\*["']$/);
+        if (wildcardMatch) {
+            const ref = wildcardMatch[1].trim();
+            return `LEFT(${criteriaRange}, LEN(${ref})) = ${ref}`;
+        }
+
+        // Handle comparison operators (e.g., ">="&$D$1, "<"&E1, "<="&F2)
+        const comparisonMatch = trimmedCriteria.match(/^["']([<>=]+)["']\s*&\s*(.+)$/);
+        if (comparisonMatch) {
+            const operator = comparisonMatch[1];
+            const value = comparisonMatch[2].trim();
+            return `${criteriaRange} ${operator} ${value}`;
+        }
+
+        // Default: equality comparison
+        return `${criteriaRange} = ${trimmedCriteria}`;
+    }
+
+    convertToSumproduct(parsed) {
+        const conditions = parsed.criteriaPairs.map(pair => 
+            `--(${this.convertCriteria(pair.range, pair.criteria)})`
+        );
+
+        return `=SUMPRODUCT(${parsed.sumRange}, ${conditions.join(', ')})`;
+    }
+
+    convertToFilter(parsed) {
+        const conditions = parsed.criteriaPairs.map(pair => 
+            `--(${this.convertCriteria(pair.range, pair.criteria)})`
+        );
+
+        return `=FILTER(${parsed.sumRange}, ${conditions.join(' ** ')})`;
+    }
+
+    convert() {
+        const formula = this.inputElement.value.trim();
+        this.errorElement.textContent = '';
+        this.outputElement.value = '';
+
+        if (!formula) {
+            return;
+        }
+
+        // Validate formula
+        const validation = this.validateSumifs(formula);
+        if (!validation.valid) {
+            this.errorElement.textContent = validation.error;
+            this.outputElement.value = '';
+            return;
+        }
+
+        try {
+            // Parse the formula
+            const parsed = this.parseSumifs(formula);
+
+            // Convert based on selected format
+            const format = this.formatElement.value;
+            let converted;
+
+            if (format === 'sumproduct') {
+                converted = this.convertToSumproduct(parsed);
+            } else if (format === 'filter') {
+                converted = this.convertToFilter(parsed);
+            }
+
+            this.outputElement.value = converted;
+            this.errorElement.textContent = '';
+        } catch (error) {
+            this.errorElement.textContent = `Error: ${error.message}`;
+            this.outputElement.value = '';
+        }
+    }
+
+    async copyToClipboard() {
+        const text = this.outputElement.value;
+        if (!text) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(text);
+            const originalText = this.copyButton.textContent;
+            this.copyButton.textContent = 'Copied!';
+            setTimeout(() => {
+                this.copyButton.textContent = originalText;
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    }
+}
+
+// Initialize the converter when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new FormulaConverter();
+});
+
+
+    </script>
+</body>
+</html>
+
