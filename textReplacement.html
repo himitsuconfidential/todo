@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>text replacer</title>
+    <style>
+        body {
+            background-color: lightblue;
+            margin: 10vh;
+            
+        }
+        b{
+            font-size: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        p{
+
+            border-style: solid;
+            border-width: 3px;
+            border-color: silver;
+            background-color: lightcyan;
+            padding: 10px;
+            border-radius: 4px;
+            width: 80vw;
+        }
+        pre{
+            margin: 0
+        }
+        button{
+            font-size:16px;
+            margin:10px;
+            height:30px;
+            width:100px;
+            border-radius: 4px;
+            
+            color: white;
+            background:navy;
+            cursor: pointer;
+            border: none
+        }
+        button:hover{
+            background-color: blue;
+        }
+        textarea{
+            font-size:16px;
+            overflow: auto;
+            resize: vertical;
+            height: 300px;
+            width: 80vw;
+            max-height: 700px;
+            min-height: 200px;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        input{
+            font-size:16px;
+            height: 30px;
+            width: 20vw
+        }
+        label{
+            width: 5vw
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .checkbox-container label {
+            margin-left: 10px;
+            font-size: 16px;
+        }
+        span{
+            background-color: yellow;
+        }
+    </style>
+    <script type="text/javascript">
+    function replaceByMode(text, regexInput, regexOutput, mode){
+        if (regexInput === '')
+            return text
+        if (mode === "norm")
+            return text.replaceAll(regexInput,`🏷️${regexOutput}📌`)
+        if (mode === "regex-g")
+            return text.replace(new RegExp(regexInput, 'g'),`🏷️${regexOutput}📌`)
+        if (mode === "regex-gi")
+            return text.replace(new RegExp(regexInput, 'gi'),`🏷️${regexOutput}📌`)
+    }
+    function browser_replace(){
+        var mode = document.getElementById("mode").value;
+        var text = document.getElementById("text").value;
+        var regexInput = document.getElementById("regexInput1").value;
+        var regexOutput = document.getElementById("regexOutput1").value;
+        text = replaceByMode(text, regexInput, regexOutput, mode)
+        var regexInput = document.getElementById("regexInput2").value;
+        var regexOutput = document.getElementById("regexOutput2").value;
+        text = replaceByMode(text, regexInput, regexOutput, mode)
+        var regexInput = document.getElementById("regexInput3").value;
+        var regexOutput = document.getElementById("regexOutput3").value;
+        text = replaceByMode(text, regexInput, regexOutput, mode)
+        var regexInput = document.getElementById("regexInput4").value;
+        var regexOutput = document.getElementById("regexOutput4").value;
+        text = replaceByMode(text, regexInput, regexOutput, mode)
+        text = text.replaceAll('📌','</span>')
+        text = text.replaceAll('🏷️','<span>')
+        document.getElementById("output").innerHTML = "<pre>" + text + "</pre>";
+        
+    }
+    function copy(){
+        var text = document.getElementById("output").innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            alert("copied to clipboard!")});
+    }
+    </script>
+</head>
+<body>
+    
+    <textarea id="text" rows = "5" placeholder="enter text to be replaced e.g. test1.xlsx saved in 2025-12-16" onchange="browser_replace()"></textarea><br>
+    <input id="regexInput1" placeholder="test1" onchange="browser_replace()">
+    <input id="regexInput2" placeholder="-" onchange="browser_replace()">
+    <input id="regexInput3" placeholder="2025" onchange="browser_replace()">
+    <input id="regexInput4" placeholder="t" onchange="browser_replace()">
+    <br>
+    <input id="regexOutput1" placeholder="test2" onchange="browser_replace()">
+    <input id="regexOutput2" placeholder="/" onchange="browser_replace()">
+    <input id="regexOutput3" placeholder="2026" onchange="browser_replace()">
+    <input id="regexOutput4" placeholder="T" onchange="browser_replace()">
+    <br>
+    <button onclick = 'browser_replace()' id = 'btn1' >replace</button>
+    <div class="checkbox-container">
+        <label>Mode</label>
+        <select id="mode" onchange="browser_replace()">
+            <option value="norm">Normal replacement</option>
+            <option value="regex-g">Regular expression - Case Sensitive</option>
+            <option value="regex-gi">Regular expression - Case Insensitive</option>
+        </select>
+    </div>
+    <div class = 'container'>
+        <div>
+            <p>
+                <button id="copy" onclick="copy()">copy</button>
+                <b id="output"></b>
+            </p>
+        </div>
+    </div>
+    
+
+</body>
+</html>
