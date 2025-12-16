@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Macro Simplifier</title>
+    <style>
+        body {
+            background-color: lightblue;
+            margin: 10vh;
+            
+        }
+        p{
+            border-style: solid;
+            border-width: 3px;
+            border-color: silver;
+            background-color: lightcyan;
+            padding: 10px;
+            border-radius: 4px;
+            width: 80vw;
+        }
+        pre{
+            margin: 0
+        }
+        button{
+            font-size:16px;
+            margin:10px;
+            height:30px;
+            width:200px;
+            border-radius: 4px;
+            
+            color: white;
+            background:navy;
+            cursor: pointer;
+            border: none
+        }
+        button:hover{
+            background-color: blue;
+        }
+        textarea{
+            font-size:16px;
+            overflow: auto;
+            resize: vertical;
+            height: 300px;
+            width: 80vw;
+            max-height: 700px;
+            min-height: 200px;
+            border-radius: 4px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Excel Macro Simplifier</h1>
+        </header>
+
+        <div class="content">
+            <div class="panel">
+                <h2>Input Macro</h2>
+                <textarea id="inputMacro" placeholder="Paste your recorded Excel VBA macro here..."></textarea>
+            </div>
+
+            <div class="button-container">
+                <button class="btn-simplify" onclick="simplifyMacro()">Simplify Macro</button>
+                <button class="btn-copy" onclick="copyOutput()">Copy Output</button>
+            </div>
+            <div class="panel">
+                <h2>Simplified Output</h2>
+                <textarea id="outputMacro" readonly placeholder="Simplified macro will appear here..."></textarea>
+            </div>
+
+            <div class="info">
+                <p class="subtitle">Remove unnecessary actions and make your VBA code cleaner</p>
+                <h3>What gets removed:</h3>
+                <ul>
+                    <li>Unnecessary <code>Range().Select</code> and <code>Selection</code> statements</li>
+                    <li><code>ActiveCell</code> references when direct assignment is possible</li>
+                    <li><code>Application.CutCopyMode</code> changes</li>
+                    <li><code>ActiveWindow.Zoom</code> changes</li>
+                    <li><code>ActiveWindow.SmallScroll</code> and <code>ActiveWindow.LargeScroll</code> actions</li>
+                    <li>Range selections that aren't used in subsequent operations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function simplifyMacro() {
+            const input = document.getElementById('inputMacro').value;
+            const output = document.getElementById('outputMacro');
+            
+            if (!input.trim()) {
+                alert('Please paste a macro first!');
+                return;
+            }
+
+            const simplified = processVBACode(input);
+            output.value = simplified;
+        }
+
+        function processVBACode(code) {
+            // First, combine lines that end with continuation character "_"
+            const rawLines = code.split('\n');
+            const combinedLines = [];
+            let i = 0;
+            
+            while (i < rawLines.length) {
+                let currentLine = rawLines[i];
+                
+                // Check if line ends with continuation character
+                while (i < rawLines.length - 1 && currentLine.trimEnd().endsWith('_')) {
+                    // Remove the trailing _ and whitespace, then append next line
+                    currentLine = currentLine.trimEnd().slice(0, -1).trimEnd() + ' ' + rawLines[i + 1].trim();
+                    i++;
+                }
+                
+                combinedLines.push(currentLine);
+                i++;
+            }
+            
+            const lines = combinedLines;
+            const result = [];
+            i = 0;
+            let baseRange = null; // The initial range (e.g., "B5")
+            let endChain = []; // Chain of .End() calls
+            let isRangeExpansion = false; // Whether we're building a Range(x, y) expansion
+            let rangeEndChain = []; // Chain for the second part of Range(Selection, Selection.End()...)
+
+            while (i < lines.length) {
+                const line = lines[i];
+                const trimmed = line.trim();
+
+                // Keep Sub declarations, empty lines, comments, End With, and property lines inside With blocks
+                if (trimmed.startsWith('Sub ') || trimmed.startsWith('End Sub') || trimmed === '' || 
+                    trimmed.startsWith("'") || trimmed === 'End With' || trimmed.startsWith('.')) {
+                    result.push(line);
+                    i++;
+                    continue;
+                }
+
+                // Skip useless actions
+                if (isUselessAction(trimmed)) {
+                    i++;
+                    continue;
+                }
+
+                // Handle Range().Select - this sets the base range
+                if (trimmed.match(/^Range\([^)]+\)\.Select$/)) {
+                    const rangeMatch = trimmed.match(/^Range\(([^)]+)\)\.Select$/);
+                    if (rangeMatch) {
+                        baseRange = rangeMatch[1];
+                        endChain = [];
+                        isRangeExpansion = false;
+                        rangeEndChain = [];
+                    }
+                    i++;
+                    continue;
+                }
+
+                // Handle Selection.End(xlDirection).Select - accumulates End() calls
+                if (trimmed.match(/^Selection\.End\(xl(Up|Down|ToLeft|ToRight)\)\.Select$/)) {
+                    const direction = trimmed.match(/^Selection\.End\((xl(?:Up|Down|ToLeft|ToRight))\)\.Select$/)[1];
+                    if (baseRange) {
+                        endChain.push(direction);
+                    }
+                    i++;
+                    continue;
+                }
+
+                // Handle Range(Selection, Selection.End(xlDirection)).Select - range expansion
+                if (trimmed.match(/^Range\(Selection,\s*Selection\.End\(xl(Up|Down|ToLeft|ToRight)\)\)\.Select$/)) {
+                    const direction = trimmed.match(/^Range\(Selection,\s*Selection\.End\((xl(?:Up|Down|ToLeft|ToRight))\)\)\.Select$/)[1];
+                    if (baseRange) {
+                        isRangeExpansion = true;
+                        rangeEndChain.push(direction);
+                    }
+                    i++;
+                    continue;
+                }
+
+                // Handle With Selection blocks
+                if (baseRange && trimmed.startsWith('With Selection')) {
+                    const simplifiedEndChain = simplifyDirections(endChain);
+                    const simplifiedRangeEndChain = simplifyDirections(rangeEndChain);
+                    
+                    let finalRange;
+                    if (isRangeExpansion && simplifiedRangeEndChain.length > 0) {
+                        let endPart = baseRange;
+                        for (const dir of simplifiedRangeEndChain) {
+                            endPart = `${endPart}.End(${dir})`;
+                        }
+                        finalRange = `Range(${baseRange}, ${endPart})`;
+                    } else if (isRangeExpansion && simplifiedRangeEndChain.length === 0) {
+                        finalRange = `Range(${baseRange})`;
+                    } else {
+                        finalRange = `Range(${baseRange})`;
+                    }
+                    
+                    const replacement = trimmed.replace('With Selection', `With ${finalRange}`);
+                    result.push(line.replace(trimmed, replacement));
+                    i++;
+                    continue;
+                }
+
+                // Now we hit an actual operation - build the final range expression
+                if (baseRange && (trimmed.startsWith('ActiveCell.') || trimmed.startsWith('Selection.') || trimmed.startsWith('ActiveSheet.'))) {
+                    // Simplify opposite directions that cancel out
+                    const simplifiedEndChain = simplifyDirections(endChain);
+                    const simplifiedRangeEndChain = simplifyDirections(rangeEndChain);
+                    
+                    let finalRange;
+                    let needsValidation = false;
+                    
+                    if (isRangeExpansion && simplifiedRangeEndChain.length > 0) {
+                        // Build Range(base, base.End()...) format
+                        let endPart = baseRange;
+                        for (const dir of simplifiedRangeEndChain) {
+                            endPart = `${endPart}.End(${dir})`;
+                        }
+                        finalRange = `Range(${baseRange}, ${endPart})`;
+                        needsValidation = true;
+                    } else if (isRangeExpansion && simplifiedRangeEndChain.length === 0) {
+                        // Directions cancelled out completely
+                        finalRange = `Range(${baseRange})`;
+                        needsValidation = true;
+                    } else if (simplifiedEndChain.length > 0) {
+                        // Build base.End()...End().Select format - keep as selection
+                        let rangeExpr = `Range(${baseRange})`;
+                        for (const dir of simplifiedEndChain) {
+                            rangeExpr += `.End(${dir})`;
+                        }
+                        // Output the Select statement before operations
+                        result.push(line.replace(trimmed, `${rangeExpr}.Select`));
+                        
+                        // Reset and process current line as ActiveCell operation
+                        baseRange = null;
+                        endChain = [];
+                        isRangeExpansion = false;
+                        rangeEndChain = [];
+                        
+                        // Keep the current operation line as-is
+                        result.push(line);
+                        i++;
+                        continue;
+                    } else {
+                        // Simple range reference
+                        finalRange = `Range(${baseRange})`;
+                    }
+                    
+                    // Replace the operation
+                    let outputLine = '';
+                    if (trimmed.startsWith('ActiveCell.FormulaR1C1')) {
+                        const value = trimmed.match(/ActiveCell\.FormulaR1C1\s*=\s*(.+)/);
+                        if (value) {
+                            outputLine = line.replace(trimmed, `${finalRange}.FormulaR1C1 = ${value[1]}`);
+                        }
+                    } else if (trimmed.startsWith('Selection.FormulaR1C1')) {
+                        const value = trimmed.match(/Selection\.FormulaR1C1\s*=\s*(.+)/);
+                        if (value) {
+                            outputLine = line.replace(trimmed, `${finalRange}.FormulaR1C1 = ${value[1]}`);
+                        }
+                    } else if (trimmed.startsWith('Selection.NumberFormat')) {
+                        const value = trimmed.match(/Selection\.NumberFormat\s*=\s*(.+)/);
+                        if (value) {
+                            outputLine = line.replace(trimmed, `${finalRange}.NumberFormat = ${value[1]}`);
+                        }
+                    } else if (trimmed === 'Selection.Copy') {
+                        outputLine = line.replace(trimmed, `${finalRange}.Copy`);
+                    } else if (trimmed === 'Selection.Paste' || trimmed === 'ActiveSheet.Paste') {
+                        outputLine = line.replace(trimmed, `${finalRange}.Paste`);
+                    } else if (trimmed === 'Selection.FillDown') {
+                        outputLine = line.replace(trimmed, `${finalRange}.FillDown`);
+                    } else if (trimmed.startsWith('Selection')) {
+                        const params = trimmed.substring('Selection'.length);
+                        outputLine = line.replace(trimmed, `${finalRange}${params}`);
+                    } else {
+                        outputLine = line;
+                    }
+                    
+                    // Add validation comment if needed
+                    if (needsValidation && outputLine) {
+                        outputLine = outputLine + " 'please validate the range used";
+                    }
+                    
+                    if (outputLine) {
+                        result.push(outputLine);
+                    }
+                    
+                    i++;
+                    continue;
+                }
+
+                // Handle standalone ActiveSheet.Paste without active range (skip it)
+                if (trimmed === 'ActiveSheet.Paste') {
+                    i++;
+                    continue;
+                }
+
+                // Keep other lines
+                if (trimmed.length > 0) {
+                    result.push(line);
+                }
+                
+                i++;
+            }
+
+            return result.join('\n');
+        }
+
+        // Simplify direction chains by canceling opposite directions
+        function simplifyDirections(directions) {
+            const opposites = {
+                'xlUp': 'xlDown',
+                'xlDown': 'xlUp',
+                'xlToLeft': 'xlToRight',
+                'xlToRight': 'xlToLeft'
+            };
+            
+            const result = [];
+            for (const dir of directions) {
+                const lastDir = result[result.length - 1];
+                if (lastDir && opposites[lastDir] === dir) {
+                    // Cancel out opposite directions
+                    result.pop();
+                } else {
+                    result.push(dir);
+                }
+            }
+            return result;
+        }
+
+        function isUselessAction(line) {
+            const uselessPatterns = [
+                /^Application\.CutCopyMode/,
+                /^ActiveWindow\.Zoom/,
+                /^ActiveWindow\.SmallScroll/,
+                /^ActiveWindow\.LargeScroll/,
+            ];
+
+            return uselessPatterns.some(pattern => pattern.test(line));
+        }
+
+        function copyOutput() {
+            const output = document.getElementById('outputMacro');
+            if (!output.value.trim()) {
+                alert('Nothing to copy! Simplify a macro first.');
+                return;
+            }
+            
+            output.select();
+            document.execCommand('copy');
+            alert('Copied to clipboard!');
+        }
+
+    </script>
+</body>
+</html>
