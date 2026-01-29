@@ -4,14 +4,14 @@ import winshell
 import subprocess
 import msvcrt  # Windows-only for key handling
 import re
-
+import datetime
 def clear_screen():
     os.system("cls")
 
 def get_recent_excel_files():
-    recent_path = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Recent")
+    recent_path = os.path.join(os.environ["APPDATA"], r"Microsoft\\Windows\\Recent")
     excel_exts = (".xls", ".xlsx", ".xlsm", ".xlsb")
-    files = []
+    file_entries = []
     for item in os.listdir(recent_path):
         if item.endswith(".lnk"):
             shortcut_path = os.path.join(recent_path, item)
@@ -19,16 +19,33 @@ def get_recent_excel_files():
                 shortcut = winshell.shortcut(shortcut_path)
                 target = shortcut.path
                 if target and target.lower().endswith(excel_exts) and os.path.isfile(target):
-                    files.append(target)
+                    # Use shortcut file's modified time as "recent access time"
+                    access_time = os.path.getmtime(shortcut_path)
+                    file_entries.append((target, access_time))
             except Exception:
                 continue
-    return list(dict.fromkeys(files))  # remove duplicates, preserve order
 
-def show_menu(files, filter_text, selected_index):
+    # Deduplicate: keep the most recent timestamp for each file
+    seen = {}
+    for fpath, ts in file_entries:
+        if fpath not in seen or ts > seen[fpath]:
+            seen[fpath] = ts
+
+    # Sort by timestamp descending (most recent first)
+    sorted_files = sorted(seen.items(), key=lambda x: x[1], reverse=True)
+
+    # Return just the file paths in sorted order
+    return sorted_files
+
+# ANSI escape code for color text
+RED = "\033[31m"
+GREEN = "\033[92m"
+RESET = "\033[0m"
+
+def show_menu(files_with_time, filter_text, selected_index):
     clear_screen()
     print("=== Recently opened Excel files ===")
     print("Type to filter. Use ↑/↓ to navigate. Press <Enter> to open. Press <Esc> to quit.\n")
-    print(f"Filter Input: {filter_text}\n")
 
     try:
         regex = re.compile(filter_text, re.IGNORECASE) if filter_text else None
@@ -36,17 +53,24 @@ def show_menu(files, filter_text, selected_index):
         regex = None
 
     filtered = []
-    for f in files:
-        if regex is None or regex.search(f):
-            filtered.append(f)
+    for file, ts in files_with_time:
+        if regex is None or regex.search(file):
+            filtered.append((file, ts))
 
     if not filtered:
-        print("No Excel files match the filter.\n")
+        print("No files match the filter.\n")
     else:
-        for i, f in enumerate(filtered):
+        for i, (file, ts) in enumerate(filtered):
             prefix = "-> " if i == selected_index else "   "
-            print(f"{prefix}{i+1}. {f}")
+            # Format timestamp
+            dt_str = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
+            # Extract file name only (last part of path)
+            file_name = os.path.basename(file)
+            # Highlight file name in green and time in red
+            highlighted = file.replace(file_name, f"{GREEN}{file_name}{RESET}")
+            print(f"{prefix}{i+1}. {highlighted} {RED}[{dt_str}]{RESET}")
 
+    print(f"Filter Input: {filter_text}")
     return filtered
 
 def open_file(path):
