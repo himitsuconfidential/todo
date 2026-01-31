@@ -1,4 +1,15 @@
+import JLParser
 import os
+class obj:
+    input_file=os.path.join(os.environ["APPDATA"], "Microsoft\\Windows\\Recent\\AutomaticDestinations\\")+'f01b4d95cf55d32a.automaticDestinations-ms'
+    input_dir=None
+    output_format=None
+    output_file=None
+    appids_file=None
+    delimiter=None
+    pretty=True
+    quiet=False
+
 import sys
 import winshell
 import datetime
@@ -6,67 +17,39 @@ import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json
-def get_recent_files():
-    recent_path = os.path.join(os.environ["APPDATA"], "Microsoft\\Windows\\Recent")
-    file_entries = []
-    for item in os.listdir(recent_path):
-        if item.endswith(".lnk"):
-            shortcut_path = os.path.join(recent_path, item)
-            try:
-                shortcut = winshell.shortcut(shortcut_path)
-                target = shortcut.path
-                if target and os.path.isfile(target):
-                    access_time = os.path.getmtime(shortcut_path)
-                    file_entries.append((target, access_time))
-            except Exception:
-                continue
-
+def get_recent_folders():
+    recent_path = JLParser.JL(obj, r"JLParser_AppID.csv")
+    folder_entries = tuple(recent_path.folders_with_time.items())
+    
     seen = {}
-    for path, ts in file_entries:
-        if path not in seen or ts > seen[path]:
-            seen[path] = ts
+    for folder, ts in folder_entries:
+        if folder not in seen or ts > seen[folder]:
+            seen[folder] = ts
 
-    sorted_files = sorted(seen.items(), key=lambda x: x[1], reverse=True)
-    return sorted_files
+    sorted_folders = sorted(seen.items(), key=lambda x: x[1], reverse=True)
+    return sorted_folders
 
-class RecentFilesApp:
+class RecentFoldersApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Recently Visited Files")
+        self.root.title("Recently Visited Folders")
 
-        self.files = get_recent_files()
-        self.filtered = self.files
+        self.folders = get_recent_folders()
+        self.filtered = self.folders
 
         # Instruction text
         tk.Label(root,
-                 text="Type to filter by name or extension. Use ↑/↓ to navigate. Press <Enter> to open file. Press <Shift+Enter> to open containing folder. Press <Esc> to quit",
+                 text="Type to filter. Use ↑/↓ to navigate. Press <Enter> to open. Press <Shift+Enter> to open parent folder. Press <Esc> to quit",
                  font=("Arial", 10),
                  anchor="w").pack(fill="x", padx=10, pady=(10,5))
 
-        # Name filter
+        # Filter input
         self.filter_var = tk.StringVar()
         self.filter_var.trace_add("write", self.update_list)
         tk.Label(root, text="Filter:", font=("Arial", 11)).pack(anchor="w", padx=10)
         self.entry = tk.Entry(root, textvariable=self.filter_var, font=("Arial", 11))
         self.entry.pack(fill="x", padx=10, pady=(0,5))
         self.entry.focus_set()
-
-        # Extension filter row
-        ext_frame = tk.Frame(root)
-        ext_frame.pack(fill="x", padx=10, pady=(0,5))
-
-        tk.Label(ext_frame, text="Extension", font=("Arial", 11)).pack(side="left")
-
-        self.ext_mode_var = tk.StringVar(value="starts with")
-        ttk.Combobox(ext_frame, textvariable=self.ext_mode_var,
-                     values=["starts with", "is"], state="readonly",
-                     width=10, font=("Arial", 10)).pack(side="left", padx=5)
-
-        self.ext_var = tk.StringVar(value=".xl")
-        tk.Entry(ext_frame, textvariable=self.ext_var, width=12, font=("Arial", 11)).pack(side="left")
-
-        self.ext_mode_var.trace_add("write", self.update_list)
-        self.ext_var.trace_add("write", self.update_list)
 
         # Regex checkbox
         self.regex_mode = tk.BooleanVar(value=False)
@@ -79,7 +62,7 @@ class RecentFilesApp:
 
         # Centered bold header
         tk.Label(root,
-                 text="Recently Visited Files",
+                 text="Recently visited folders",
                  font=("Arial", 14, "bold"),
                  anchor="center").pack(fill="x", pady=(0,5))
 
@@ -88,10 +71,10 @@ class RecentFilesApp:
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Treeview with two columns
-        self.tree = ttk.Treeview(frame, columns=("File", "Time"), show="headings")
-        self.tree.heading("File", text="File")
+        self.tree = ttk.Treeview(frame, columns=("Folder", "Time"), show="headings")
+        self.tree.heading("Folder", text="Folder")
         self.tree.heading("Time", text="Last access time")
-        self.tree.column("File", anchor="w", width=600)
+        self.tree.column("Folder", anchor="w", width=600)
         self.tree.column("Time", anchor="center", width=150)
 
         # Vertical scrollbar
@@ -105,11 +88,11 @@ class RecentFilesApp:
         btn_frame = tk.Frame(root)
         btn_frame.pack(fill="x", padx=10, pady=(5,10))
 
-        self.btn_open = tk.Button(btn_frame, text="Open File", font=("Arial", 11), command=self.open_file, underline=5)
+        self.btn_open = tk.Button(btn_frame, text="Open", font=("Arial", 11), command=self.open_selected, underline=0)
         self.btn_open.pack(side="left", padx=5)
 
-        self.btn_open_folder = tk.Button(btn_frame, text="Open Containing Folder", font=("Arial", 11), command=self.open_containing_folder, underline=0)
-        self.btn_open_folder.pack(side="left", padx=5)
+        self.btn_open_parent = tk.Button(btn_frame, text="Open Parent Folder", font=("Arial", 11), command=self.open_parent, underline=12)
+        self.btn_open_parent.pack(side="left", padx=5)
 
         self.btn_exit = tk.Button(btn_frame, text="Exit", font=("Arial", 11), command=self.root.quit, underline=1)
         self.btn_exit.pack(side="right", padx=5)
@@ -117,19 +100,19 @@ class RecentFilesApp:
         # Bind keys and double-click
         self.root.bind("<Up>", self.move_up)
         self.root.bind("<Down>", self.move_down)
-        self.root.bind("<Prior>", self.page_up)
-        self.root.bind("<Next>", self.page_down)
-        self.root.bind("<Return>", self.open_file)
-        self.root.bind("<Shift-Return>", self.open_containing_folder)
+        self.root.bind("<Prior>", self.page_up)     # PageUp
+        self.root.bind("<Next>", self.page_down)   # PageDown
+        self.root.bind("<Return>", self.open_selected)
+        self.root.bind("<Shift-Return>", self.open_parent)
         self.root.bind("<Escape>", lambda e: self.root.quit())
-        self.tree.bind("<Double-1>", self.open_file)
+        self.tree.bind("<Double-1>", self.open_selected)
 
         # Alt accelerators
-        self.root.bind("<Alt-o>", lambda e: self.open_file())
-        self.root.bind("<Alt-p>", lambda e: self.open_containing_folder())
+        self.root.bind("<Alt-o>", lambda e: self.open_selected())
+        self.root.bind("<Alt-f>", lambda e: self.open_parent())
+        self.root.bind("<Alt-r>", self.toggle_regex)
         self.root.bind("<Alt-x>", lambda e: self.root.quit())
-        self.root.bind("<Alt-e>", self.focus_extension_field)
-
+        
         # Mouse wheel scrolling
         self.tree.bind("<MouseWheel>", self.on_mousewheel)
         self.load_config()
@@ -138,57 +121,46 @@ class RecentFilesApp:
 
     def update_list(self, *args):
         filter_text = self.filter_var.get().strip()
-        ext_text = self.ext_var.get().strip().lower()
-        ext_mode = self.ext_mode_var.get()
-        use_regex = self.regex_mode.get()
 
         # Clear tree
         for item in self.tree.get_children():
             self.tree.delete(item)
 
         self.filtered = []
-        for path, ts in self.files:
-            basename = os.path.basename(path).lower()
-            file_ext = os.path.splitext(path)[1].lower()
-
-            # Name filter
-            name_match = True
+        for folder, ts in self.folders:
+            match = True
             if filter_text:
-                if use_regex:
+                if self.regex_mode.get():
                     try:
                         regex = re.compile(filter_text, re.IGNORECASE)
-                        name_match = bool(regex.search(os.path.basename(path)))
+                        match = bool(regex.search(folder))
                     except re.error:
-                        name_match = False
+                        match = False
                 else:
-                    name_match = filter_text.lower() in basename
+                    match = filter_text.lower() in folder.lower()
 
-            # Extension filter
-            ext_match = True
-            if ext_text:
-                if ext_mode == "is":
-                    ext_match = file_ext == ext_text
-                else:  # starts with
-                    ext_match = file_ext.startswith(ext_text)
-
-            if name_match and ext_match:
-                self.filtered.append((path, ts))
+            if match:
+                self.filtered.append((folder, ts))
 
         if not self.filtered:
-            self.tree.insert("", "end", values=("No files of selected type(s) match the filter.", ""))
+            self.tree.insert("", "end", values=("No folders match the filter.", ""))
             return
 
-        for path, ts in self.filtered:
+        for folder, ts in self.filtered:
             dt_str = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
-            self.tree.insert("", "end", values=(path, dt_str))
+            self.tree.insert("", "end", values=(folder, dt_str))
 
         # Select first row by default
         if self.filtered:
             first_item = self.tree.get_children()[0]
             self.tree.selection_set(first_item)
             self.tree.focus(first_item)
-            self.tree.see(first_item)
+            self.tree.see(first_item)  # ensure visible
 
+    def toggle_regex(self, event=None): 
+        """Toggle regex mode when Alt+R is pressed.""" 
+        self.regex_mode.set(not self.regex_mode.get()) 
+        self.update_list()
     def move_up(self, event=None):
         sel = self.tree.selection()
         if sel:
@@ -197,7 +169,7 @@ class RecentFilesApp:
                 prev_item = self.tree.get_children()[index - 1]
                 self.tree.selection_set(prev_item)
                 self.tree.focus(prev_item)
-                self.tree.see(prev_item)
+                self.tree.see(prev_item)  # auto-scroll
 
     def move_down(self, event=None):
         sel = self.tree.selection()
@@ -208,14 +180,14 @@ class RecentFilesApp:
                 next_item = children[index + 1]
                 self.tree.selection_set(next_item)
                 self.tree.focus(next_item)
-                self.tree.see(next_item)
+                self.tree.see(next_item)  # auto-scroll
 
     def page_up(self, event=None):
         sel = self.tree.selection()
         if sel:
             index = self.tree.index(sel[0])
             children = self.tree.get_children()
-            visible = int(self.tree.winfo_height() / 20)
+            visible = int(self.tree.winfo_height() / 20)  # rough estimate rows per page
             new_index = max(0, index - visible)
             target_item = children[new_index]
             self.tree.selection_set(target_item)
@@ -227,73 +199,68 @@ class RecentFilesApp:
         if sel:
             index = self.tree.index(sel[0])
             children = self.tree.get_children()
-            visible = int(self.tree.winfo_height() / 20)
+            visible = int(self.tree.winfo_height() / 20)  # rough estimate rows per page
             new_index = min(len(children) - 1, index + visible)
             target_item = children[new_index]
             self.tree.selection_set(target_item)
             self.tree.focus(target_item)
             self.tree.see(target_item)
 
-    def open_file(self, event=None):
+    def open_selected(self, event=None):
         sel = self.tree.selection()
         if not sel:
             return
         item = sel[0]
         values = self.tree.item(item, "values")
-        path = values[0]
-        if not path or "No files" in path:
-            return
-        try:
-            os.startfile(path)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to open file:\n{path}\n\n{e}")
-
-    def open_containing_folder(self, event=None):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        item = sel[0]
-        values = self.tree.item(item, "values")
-        path = values[0]
-        if not path or "No files" in path:
-            return
-        folder = os.path.dirname(path)
-        if not folder:
+        folder = values[0]
+        if not folder or folder == "No folders match the filter.":
             return
         try:
             os.startfile(folder)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open containing folder:\n{folder}\n\n{e}")
+            messagebox.showerror("Error", f"Failed to open {folder}:\n{e}")
 
     def on_mousewheel(self, event):
+        # Scroll Treeview with mouse wheel
         self.tree.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    def open_parent(self, event=None):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        item = sel[0]
+        values = self.tree.item(item, "values")
+        folder = values[0]
+        if not folder or folder == "No folders match the filter.":
+            return
+        parent = os.path.dirname(folder)
+        if not parent:
+            return
+        try:
+            os.startfile(parent)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open parent folder:\n")
 
     def save_config(self):
         config = {
             "name_filter": self.filter_var.get().strip(),
-            "ext_value": self.ext_var.get().strip(),
-            "ext_mode": self.ext_mode_var.get(),
             "regex_mode": self.regex_mode.get()
         }
         try:
-            with open("recentxl.config", "w", encoding="utf-8") as f:
+            with open("recentfolder.config", "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
         except Exception:
             pass  # silent fail - don't disturb user
 
     def load_config(self):
-        if not os.path.exists("recentxl.config"):
+        if not os.path.exists("recentfolder.config"):
             return
         try:
-            with open("recentxl.config", "r", encoding="utf-8") as f:
+            with open("recentfolder.config", "r", encoding="utf-8") as f:
                 config = json.load(f)
 
             if "name_filter" in config:
                 self.filter_var.set(config["name_filter"])
-            if "ext_value" in config:
-                self.ext_var.set(config["ext_value"])
-            if "ext_mode" in config and config["ext_mode"] in ["starts with", "is"]:
-                self.ext_mode_var.set(config["ext_mode"])
             if "regex_mode" in config:
                 self.regex_mode.set(bool(config["regex_mode"]))
 
@@ -305,9 +272,6 @@ class RecentFilesApp:
         self.save_config()
         self.root.destroy()
 
-    def focus_extension_field(self, event=None):
-            self.ext_entry.focus_set()
-            self.ext_entry.select_range(0, 'end')
 def main():
     if sys.platform != "win32":
         print("This script only works on Windows.")
@@ -315,7 +279,7 @@ def main():
 
     root = tk.Tk()
     root.state("zoomed")   # maximize window on startup
-    app = RecentFilesApp(root)
+    app = RecentFoldersApp(root)
     root.mainloop()
 
 if __name__ == "__main__":

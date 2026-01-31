@@ -1,15 +1,13 @@
 import os
 import sys
 import winshell
-import subprocess
-import msvcrt  # Windows-only for key handling
-import re
 import datetime
-def clear_screen():
-    os.system("cls")
-
+import re
+import tkinter as tk
+from tkinter import ttk, messagebox
+import json
 def get_recent_folders():
-    recent_path = os.path.join(os.environ["APPDATA"], r"Microsoft\\Windows\\Recent")
+    recent_path = os.path.join(os.environ["APPDATA"], "Microsoft\\Windows\\Recent")
     folder_entries = []
     for item in os.listdir(recent_path):
         if item.endswith(".lnk"):
@@ -18,104 +16,271 @@ def get_recent_folders():
                 shortcut = winshell.shortcut(shortcut_path)
                 target = shortcut.path
                 if target and os.path.isdir(target):
-                    # Use the shortcut file's modified time as "recent access time"
                     access_time = os.path.getmtime(shortcut_path)
                     folder_entries.append((target, access_time))
             except Exception:
                 continue
 
-    # Remove duplicates while keeping the most recent timestamp
     seen = {}
     for folder, ts in folder_entries:
         if folder not in seen or ts > seen[folder]:
             seen[folder] = ts
 
-    # Sort by timestamp descending (most recent first)
     sorted_folders = sorted(seen.items(), key=lambda x: x[1], reverse=True)
-
-    # Return just the folder paths in sorted order
     return sorted_folders
 
+class RecentFoldersApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Recently Visited Folders")
 
-# ANSI escape code for color text
-RED = "\033[31m"
-GREEN = "\033[92m"
-RESET = "\033[0m"
+        self.folders = get_recent_folders()
+        self.filtered = self.folders
 
-def show_menu(folders_with_time, filter_text, selected_index):
-    clear_screen()
-    print("=== Recently visited folders ===")
-    print("Type to filter. Use ↑/↓ to navigate. Press <Enter> to open. Press <Esc> to quit.\n")
+        # Instruction text
+        tk.Label(root,
+                 text="Type to filter. Use ↑/↓ to navigate. Press <Enter> to open. Press <Shift+Enter> to open parent folder. Press <Esc> to quit",
+                 font=("Arial", 10),
+                 anchor="w").pack(fill="x", padx=10, pady=(10,5))
 
-    try:
-        regex = re.compile(filter_text, re.IGNORECASE) if filter_text else None
-    except re.error:
-        regex = None
+        # Filter input
+        self.filter_var = tk.StringVar()
+        self.filter_var.trace_add("write", self.update_list)
+        tk.Label(root, text="Filter:", font=("Arial", 11)).pack(anchor="w", padx=10)
+        self.entry = tk.Entry(root, textvariable=self.filter_var, font=("Arial", 11))
+        self.entry.pack(fill="x", padx=10, pady=(0,5))
+        self.entry.focus_set()
 
-    filtered = []
-    for folder, ts in folders_with_time:
-        if regex is None or regex.search(folder):
-            filtered.append((folder, ts))
+        # Regex checkbox
+        self.regex_mode = tk.BooleanVar(value=False)
+        self.regex_check = tk.Checkbutton(root, text="Advanced: filter by regex",
+                                          variable=self.regex_mode,
+                                          command=self.update_list,
+                                          font=("Arial", 10),
+                                          underline=20)
+        self.regex_check.pack(anchor="w", padx=10, pady=(0,10))
 
-    if not filtered:
-        print("No folders match the filter.\n")
-    else:
-        for i, (folder, ts) in enumerate(filtered):
-            prefix = "-> " if i == selected_index else "   "
-            # Format timestamp
+        # Centered bold header
+        tk.Label(root,
+                 text="Recently visited folders",
+                 font=("Arial", 14, "bold"),
+                 anchor="center").pack(fill="x", pady=(0,5))
+
+        # Frame for Treeview + scrollbar
+        frame = tk.Frame(root)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Treeview with two columns
+        self.tree = ttk.Treeview(frame, columns=("Folder", "Time"), show="headings")
+        self.tree.heading("Folder", text="Folder")
+        self.tree.heading("Time", text="Last access time")
+        self.tree.column("Folder", anchor="w", width=600)
+        self.tree.column("Time", anchor="center", width=150)
+
+        # Vertical scrollbar
+        vsb = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+
+        self.tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+        # Buttons frame
+        btn_frame = tk.Frame(root)
+        btn_frame.pack(fill="x", padx=10, pady=(5,10))
+
+        self.btn_open = tk.Button(btn_frame, text="Open", font=("Arial", 11), command=self.open_selected, underline=0)
+        self.btn_open.pack(side="left", padx=5)
+
+        self.btn_open_parent = tk.Button(btn_frame, text="Open Parent Folder", font=("Arial", 11), command=self.open_parent, underline=12)
+        self.btn_open_parent.pack(side="left", padx=5)
+
+        self.btn_exit = tk.Button(btn_frame, text="Exit", font=("Arial", 11), command=self.root.quit, underline=1)
+        self.btn_exit.pack(side="right", padx=5)
+
+        # Bind keys and double-click
+        self.root.bind("<Up>", self.move_up)
+        self.root.bind("<Down>", self.move_down)
+        self.root.bind("<Prior>", self.page_up)     # PageUp
+        self.root.bind("<Next>", self.page_down)   # PageDown
+        self.root.bind("<Return>", self.open_selected)
+        self.root.bind("<Shift-Return>", self.open_parent)
+        self.root.bind("<Escape>", lambda e: self.root.quit())
+        self.tree.bind("<Double-1>", self.open_selected)
+
+        # Alt accelerators
+        self.root.bind("<Alt-o>", lambda e: self.open_selected())
+        self.root.bind("<Alt-f>", lambda e: self.open_parent())
+        self.root.bind("<Alt-r>", self.toggle_regex)
+        self.root.bind("<Alt-x>", lambda e: self.root.quit())
+        
+        # Mouse wheel scrolling
+        self.tree.bind("<MouseWheel>", self.on_mousewheel)
+        self.load_config()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.update_list()
+
+    def update_list(self, *args):
+        filter_text = self.filter_var.get().strip()
+
+        # Clear tree
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        self.filtered = []
+        for folder, ts in self.folders:
+            match = True
+            if filter_text:
+                if self.regex_mode.get():
+                    try:
+                        regex = re.compile(filter_text, re.IGNORECASE)
+                        match = bool(regex.search(folder))
+                    except re.error:
+                        match = False
+                else:
+                    match = filter_text.lower() in folder.lower()
+
+            if match:
+                self.filtered.append((folder, ts))
+
+        if not self.filtered:
+            self.tree.insert("", "end", values=("No folders match the filter.", ""))
+            return
+
+        for folder, ts in self.filtered:
             dt_str = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
-            # Extract folder name only (last part of path)
-            folder_name = os.path.basename(folder)
-            # Highlight folder name in green and time in red
-            highlighted = folder.replace(folder_name, f"{GREEN}{folder_name}{RESET}")
-            print(f"{prefix}{i+1}. {highlighted} {RED}[{dt_str}]{RESET}")
+            self.tree.insert("", "end", values=(folder, dt_str))
 
-    print(f"Filter Input: {filter_text}")
-    return filtered
+        # Select first row by default
+        if self.filtered:
+            first_item = self.tree.get_children()[0]
+            self.tree.selection_set(first_item)
+            self.tree.focus(first_item)
+            self.tree.see(first_item)  # ensure visible
 
+    def toggle_regex(self, event=None): 
+        """Toggle regex mode when Alt+R is pressed.""" 
+        self.regex_mode.set(not self.regex_mode.get()) 
+        self.update_list()
+    def move_up(self, event=None):
+        sel = self.tree.selection()
+        if sel:
+            index = self.tree.index(sel[0])
+            if index > 0:
+                prev_item = self.tree.get_children()[index - 1]
+                self.tree.selection_set(prev_item)
+                self.tree.focus(prev_item)
+                self.tree.see(prev_item)  # auto-scroll
 
-def open_folder(path):
-    try:
-        subprocess.Popen(f'explorer "{path}"')
-    except Exception as e:
-        print(f"Failed to open {path}: {e}")
+    def move_down(self, event=None):
+        sel = self.tree.selection()
+        if sel:
+            index = self.tree.index(sel[0])
+            children = self.tree.get_children()
+            if index < len(children) - 1:
+                next_item = children[index + 1]
+                self.tree.selection_set(next_item)
+                self.tree.focus(next_item)
+                self.tree.see(next_item)  # auto-scroll
+
+    def page_up(self, event=None):
+        sel = self.tree.selection()
+        if sel:
+            index = self.tree.index(sel[0])
+            children = self.tree.get_children()
+            visible = int(self.tree.winfo_height() / 20)  # rough estimate rows per page
+            new_index = max(0, index - visible)
+            target_item = children[new_index]
+            self.tree.selection_set(target_item)
+            self.tree.focus(target_item)
+            self.tree.see(target_item)
+
+    def page_down(self, event=None):
+        sel = self.tree.selection()
+        if sel:
+            index = self.tree.index(sel[0])
+            children = self.tree.get_children()
+            visible = int(self.tree.winfo_height() / 20)  # rough estimate rows per page
+            new_index = min(len(children) - 1, index + visible)
+            target_item = children[new_index]
+            self.tree.selection_set(target_item)
+            self.tree.focus(target_item)
+            self.tree.see(target_item)
+
+    def open_selected(self, event=None):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        item = sel[0]
+        values = self.tree.item(item, "values")
+        folder = values[0]
+        if not folder or folder == "No folders match the filter.":
+            return
+        try:
+            os.startfile(folder)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open {folder}:\n{e}")
+
+    def on_mousewheel(self, event):
+        # Scroll Treeview with mouse wheel
+        self.tree.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    def open_parent(self, event=None):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        item = sel[0]
+        values = self.tree.item(item, "values")
+        folder = values[0]
+        if not folder or folder == "No folders match the filter.":
+            return
+        parent = os.path.dirname(folder)
+        if not parent:
+            return
+        try:
+            os.startfile(parent)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open parent folder:\n")
+
+    def save_config(self):
+        config = {
+            "name_filter": self.filter_var.get().strip(),
+            "regex_mode": self.regex_mode.get()
+        }
+        try:
+            with open("recentfolder.config", "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+        except Exception:
+            pass  # silent fail - don't disturb user
+
+    def load_config(self):
+        if not os.path.exists("recentfolder.config"):
+            return
+        try:
+            with open("recentfolder.config", "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+            if "name_filter" in config:
+                self.filter_var.set(config["name_filter"])
+            if "regex_mode" in config:
+                self.regex_mode.set(bool(config["regex_mode"]))
+
+            # Trigger update after loading values
+            self.update_list()
+        except Exception:
+            pass  # silent fail
+    def on_closing(self):
+        self.save_config()
+        self.root.destroy()
 
 def main():
-    folders = get_recent_folders()
-    if not folders:
-        print("No recent folders found.")
-        return
-
-    filter_text = ""
-    selected_index = 0
-
-    while True:
-        filtered = show_menu(folders, filter_text, selected_index)
-
-        ch = msvcrt.getwch()
-        if ch == "\x1b":  # ESC key
-            return
-        elif ch == "\r":  # Enter
-            if filtered:
-                open_folder(filtered[selected_index])
-        elif ch == "\x08":  # Backspace
-            if filter_text:
-                filter_text = filter_text[:-1]
-                selected_index = 0
-        elif ch in ("\xe0", "\000"):  # Arrow keys
-            arrow = msvcrt.getwch()
-            if filtered:
-                if arrow == "H":  # Up
-                    selected_index = max(0, selected_index - 1)
-                elif arrow == "P":  # Down
-                    selected_index = min(len(filtered) - 1, selected_index + 1)
-        else:
-            # normal character input
-            filter_text += ch
-            selected_index = 0  # reset selection to top after typing
-
-if __name__ == "__main__":
     if sys.platform != "win32":
         print("This script only works on Windows.")
-    else:
-        main()
+        return
+
+    root = tk.Tk()
+    root.state("zoomed")   # maximize window on startup
+    app = RecentFoldersApp(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
