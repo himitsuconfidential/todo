@@ -152,6 +152,7 @@
         };
 
         const addRow = (type, columns) => {
+            document.activeElement.blur();
             const data = loadData(type);
             const newItem = columns.reduce((obj, col) => ({ ...obj, [col]: '' }), {});
             if (type === 'log') {
@@ -160,7 +161,9 @@
             data.unshift(newItem);
             saveData(type, data);
             populateTable(type, columns);
-            document.querySelector(`#${type}-table > tbody > tr > td:nth-child(2) > input[type=text]`).focus()
+            document.querySelector(`#${type}-table > tbody > tr > td:nth-child(2) > input[type=text]`).focus();
+            document.querySelector(`#${type}-table > tbody > tr > td:nth-child(2) > input[type=text]`).select();
+            
         };
 
         const saveTableData = type => {
