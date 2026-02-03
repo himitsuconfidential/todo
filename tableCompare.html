@@ -381,7 +381,9 @@
     // initialize textbox
     document.getElementById('tsvA').value = 'Year\tBalance\tReturn\n1\t100\tNot Given\n2\t104\t4';
     document.getElementById('tsvB').value = 'Year\tBalance\tReturn rate\n1\t100\tNot Given\n2\t105\t5%\n3\t107.1\t2%';
-
+    // Set initial focus to textarea when page loads
+    document.getElementById("tsvA").focus();
+    document.getElementById("tsvA").select();
     // File upload handlers
     function handleFileInput(fileInputId, textareaId) {
       const fileInput = document.getElementById(fileInputId);
@@ -668,7 +670,7 @@
 
       displayResults2D(rowsA, rowsB);
     }
-
+    
     document.getElementById('compareBtn').addEventListener('click', compareTSVs);
     document.getElementById('textMode').addEventListener('change', compareTSVs);
     document.getElementById('numberMode').addEventListener('change', compareTSVs);
@@ -726,10 +728,6 @@
 
     // ===== Keyboard Shortcuts =====
     document.addEventListener('keydown', function(event) {
-      // Check if user is actively typing in a text input
-      const isInTextarea = event.target.tagName === 'TEXTAREA' || 
-                          (event.target.tagName === 'INPUT' && event.target.type !== 'number');
-      const isInNumberInput = event.target.tagName === 'INPUT' && event.target.type === 'number';
       
       // Ctrl+Enter or Cmd+Enter: Compare (works from anywhere, including textareas)
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -738,55 +736,48 @@
         return;
       }
 
-      // Alt shortcuts: work when NOT actively typing in textarea
-      // But allow Alt+O even when in number input (to refocus tolerance)
+      // Alt shortcuts
       if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
         const key = event.key.toLowerCase();
-        
-        // Alt+O: Focus Tolerance (works even from tolerance input itself)
-        if (key === 'o') {
-          event.preventDefault();
-          const toleranceInput = document.getElementById('tolerance');
-          toleranceInput.focus();
-          toleranceInput.select();
-          return;
-        }
-        
-        // Other Alt shortcuts: only work when NOT typing in textarea
-        if (!isInTextarea) {
-          event.preventDefault();
+        switch(key) {
+          case 'o':
+            event.preventDefault();
+            const toleranceInput = document.getElementById('tolerance');
+            toleranceInput.focus();
+            toleranceInput.select();
+            break;
+          case '1':
+            document.getElementById('tsvA').focus();
+            document.getElementById('tsvA').select();
+            break;
+          case '2':
+            document.getElementById('tsvB').focus();
+            document.getElementById('tsvB').select();
+            break;
+          case 'y':
+            // Cycle through number mode options
+            const numberMode = document.getElementById('numberMode');
+            const options = ['a-b', 'a-b-div-b', 'b-a-div-a', 'a-vs-b'];
+            const currentIndex = options.indexOf(numberMode.value);
+            const nextIndex = (currentIndex + 1) % options.length;
+            numberMode.value = options[nextIndex];
+            numberMode.dispatchEvent(new Event('change'));
+            break;
+          case 'r':
+            // Cycle through filter options
+            const filterMode = document.getElementById('filterMode');
+            const filterOptions = ['all', 'mismatch', 'number-mismatch'];
+            const currentFilterIndex = filterOptions.indexOf(filterMode.value);
+            const nextFilterIndex = (currentFilterIndex + 1) % filterOptions.length;
+            filterMode.value = filterOptions[nextFilterIndex];
+            filterMode.dispatchEvent(new Event('change'));
+            // Re-run comparison if results are visible
+            const resultDiv = document.getElementById('result');
+            if (!resultDiv.classList.contains('hidden')) {
+              compareTSVs();
+            }
+            break;
           
-          switch(key) {
-            case '1':
-              document.getElementById('tsvA').focus();
-              break;
-            case '2':
-              document.getElementById('tsvB').focus();
-              break;
-            case 'y':
-              // Cycle through number mode options
-              const numberMode = document.getElementById('numberMode');
-              const options = ['a-b', 'a-b-div-b', 'b-a-div-a', 'a-vs-b'];
-              const currentIndex = options.indexOf(numberMode.value);
-              const nextIndex = (currentIndex + 1) % options.length;
-              numberMode.value = options[nextIndex];
-              numberMode.dispatchEvent(new Event('change'));
-              break;
-            case 'r':
-              // Cycle through filter options
-              const filterMode = document.getElementById('filterMode');
-              const filterOptions = ['all', 'mismatch', 'number-mismatch'];
-              const currentFilterIndex = filterOptions.indexOf(filterMode.value);
-              const nextFilterIndex = (currentFilterIndex + 1) % filterOptions.length;
-              filterMode.value = filterOptions[nextFilterIndex];
-              filterMode.dispatchEvent(new Event('change'));
-              // Re-run comparison if results are visible
-              const resultDiv = document.getElementById('result');
-              if (!resultDiv.classList.contains('hidden')) {
-                compareTSVs();
-              }
-              break;
-          }
         }
       }
     });
