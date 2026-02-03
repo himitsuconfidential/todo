@@ -11,6 +11,60 @@
             margin: 10vh;
             
         }
+        .app-header h1{
+            margin: 0 0 6px 0;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 28px;
+            color: navy;
+        }
+        .pair-header{
+            width: 80vw;
+            display: flex;
+            margin: 10px 0px 6px 10px;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #0a2a66;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .pair-header .col{
+            width: 40vw;
+        }
+        .row{
+            width: 80vw;
+            display: flex;
+            gap: 0;
+            margin-left: 10px;
+        }
+        .toolbar{
+            width: 80vw;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toolbar .spacer{
+            flex: 1;
+        }
+        .floating-btn{
+            position: fixed;
+            top: 16px;
+            width: 40px;
+            height: 40px;
+            margin: 0;
+            border-radius: 999px;
+            background: #1f3b7a;
+            font-size: 18px;
+            line-height: 40px;
+            padding: 0;
+        }
+        .floating-btn:hover{
+            background: #2b56b8;
+        }
+        #btnSettings{
+            right: 16px;
+        }
+        #btnImport{
+            right: 62px;
+        }
         b{
             font-size: 20px;
             font-family: Arial, Helvetica, sans-serif;
@@ -57,7 +111,7 @@
         input{
             font-size:16px;
             height: 30px;
-            width: 20vw
+            width: 40vw
         }
         label{
             width: 5vw
@@ -71,62 +125,31 @@
             margin-left: 10px;
             font-size: 16px;
         }
-        span{
-            background-color: yellow;
+        .hl{
+            background: yellow;
         }
     </style>
-    <script type="text/javascript">
-    function replaceByMode(text, regexInput, regexOutput, mode){
-        if (regexInput === '')
-            return text
-        if (mode === "norm")
-            return text.replaceAll(regexInput,`🏷️${regexOutput}📌`)
-        if (mode === "regex-g")
-            return text.replace(new RegExp(regexInput, 'g'),`🏷️${regexOutput}📌`)
-        if (mode === "regex-gi")
-            return text.replace(new RegExp(regexInput, 'gi'),`🏷️${regexOutput}📌`)
-    }
-    function browser_replace(){
-        var mode = document.getElementById("mode").value;
-        var text = document.getElementById("text").value;
-        var regexInput = document.getElementById("regexInput1").value;
-        var regexOutput = document.getElementById("regexOutput1").value;
-        text = replaceByMode(text, regexInput, regexOutput, mode)
-        var regexInput = document.getElementById("regexInput2").value;
-        var regexOutput = document.getElementById("regexOutput2").value;
-        text = replaceByMode(text, regexInput, regexOutput, mode)
-        var regexInput = document.getElementById("regexInput3").value;
-        var regexOutput = document.getElementById("regexOutput3").value;
-        text = replaceByMode(text, regexInput, regexOutput, mode)
-        var regexInput = document.getElementById("regexInput4").value;
-        var regexOutput = document.getElementById("regexOutput4").value;
-        text = replaceByMode(text, regexInput, regexOutput, mode)
-        text = text.replaceAll('📌','</span>')
-        text = text.replaceAll('🏷️','<span>')
-        document.getElementById("output").innerHTML = "<pre>" + text + "</pre>";
-        
-    }
-    function copy(){
-        var text = document.getElementById("output").innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            alert("copied to clipboard!")});
-    }
-    </script>
+
 </head>
 <body>
+    <header class="app-header">
+        <h1><u>T</u>ext Replacer</h1>
+    </header>
+
+    <textarea id="text" rows = "5" placeholder="enter text to be replaced e.g. find 1, find 2, find 3" onchange="browser_replace()"></textarea><br>
+    <div class="pair-header">
+        <span class="col">Find</span>
+        <span class="col">Replace</span>
+    </div>
+    <div id="pairs"></div>
     
-    <textarea id="text" rows = "5" placeholder="enter text to be replaced e.g. test1.xlsx saved in 2025-12-16" onchange="browser_replace()"></textarea><br>
-    <input id="regexInput1" placeholder="test1" onchange="browser_replace()">
-    <input id="regexInput2" placeholder="-" onchange="browser_replace()">
-    <input id="regexInput3" placeholder="2025" onchange="browser_replace()">
-    <input id="regexInput4" placeholder="t" onchange="browser_replace()">
-    <br>
-    <input id="regexOutput1" placeholder="test2" onchange="browser_replace()">
-    <input id="regexOutput2" placeholder="/" onchange="browser_replace()">
-    <input id="regexOutput3" placeholder="2026" onchange="browser_replace()">
-    <input id="regexOutput4" placeholder="T" onchange="browser_replace()">
-    <br>
-    <button onclick = 'browser_replace()' id = 'btn1' >replace</button>
+    
+    <button onclick="openImport()" id="btnImport" class="floating-btn" title="import TSV">⤵️</button>
+    <button onclick="openSettings()" id="btnSettings" class="floating-btn" title="settings">⚙️</button>
+    <div class="toolbar">
+        <button onclick='browser_replace()' id='btn1'>replace</button>
+        <div class="spacer"></div>
+    </div>
     <div class="checkbox-container">
         <label>Mode</label>
         <select id="mode" onchange="browser_replace()">
@@ -138,12 +161,189 @@
     <div class = 'container'>
         <div>
             <p>
-                <button id="copy" onclick="copy()">copy</button>
+                <button id="copy" onclick="copy()">cop<u>y</u></button>
                 <b id="output"></b>
             </p>
         </div>
     </div>
     
+    <script type="text/javascript">
+        // Track current index for cycling through inputs
+        var currentIndex = 0;
+        var pairCount = 4;
+        var PAIR_MIN = 1;
+        var PAIR_MAX = 50;
 
+        function clamp(n, min, max){
+            return Math.max(min, Math.min(max, n));
+        }
+
+        function renderPairs(){
+            var container = document.getElementById("pairs");
+            var html = "";
+            for (var i = 1; i <= pairCount; i++){
+                html += `
+                <div class="row">
+                    <input id="regexInput${i}" placeholder="find ${i}" onchange="browser_replace()">
+                    <input id="regexOutput${i}" placeholder="replace ${i}" onchange="browser_replace()">
+                </div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function forEachRule(fn){
+            for (var i = 1; i <= pairCount; i++){
+                var inEl = document.getElementById("regexInput" + i);
+                var outEl = document.getElementById("regexOutput" + i);
+                if (!inEl || !outEl) continue;
+                fn(inEl, outEl, i);
+            }
+        }
+
+        function setPairCountAndRender(n, preserveExisting){
+            var existing = [];
+            if (preserveExisting){
+                forEachRule(function(inEl, outEl){
+                    existing.push([inEl.value, outEl.value]);
+                });
+            }
+            pairCount = clamp(n, PAIR_MIN, PAIR_MAX);
+            renderPairs();
+            if (preserveExisting && existing.length){
+                forEachRule(function(inEl, outEl, i){
+                    var prev = existing[i - 1];
+                    if (!prev) return;
+                    inEl.value = prev[0];
+                    outEl.value = prev[1];
+                });
+            }
+        }
+
+        function openSettings(){
+            var next = prompt("How many Find/Replace pairs? (" + PAIR_MIN + " - " + PAIR_MAX + ")", String(pairCount));
+            if (next === null) return;
+            var n = parseInt(next, 10);
+            if (isNaN(n)) return;
+            setPairCountAndRender(n, true);
+            browser_replace();
+        }
+
+        function openImport(){
+            var example = "find 1\treplace 1\nfind 2\treplace 2";
+            var tsv = prompt("Paste tab-separated pairs (one per line):\nfind<TAB>replace", example);
+            if (tsv === null) return;
+
+            var lines = tsv.split(/\r?\n/);
+            var rules = [];
+            for (var i = 0; i < lines.length; i++){
+                var line = lines[i];
+                if (line.trim() === "") continue;
+                var parts = line.split("\t");
+                var find = parts[0] ?? "";
+                var repl = parts.length > 1 ? parts.slice(1).join("\t") : "";
+                rules.push([find, repl]);
+            }
+            if (rules.length === 0) return;
+
+            setPairCountAndRender(rules.length);
+            forEachRule(function(inEl, outEl, i){
+                var rule = rules[i - 1] || ["", ""];
+                inEl.value = rule[0];
+                outEl.value = rule[1];
+            });
+            browser_replace();
+        }
+        
+        function replaceByMode(text, regexInput, regexOutput, mode){
+            if (regexInput === '')
+                return text
+            if (mode === "norm")
+                return text.replaceAll(regexInput,`🏷️${regexOutput}📌`)
+            if (mode === "regex-g")
+                return text.replace(new RegExp(regexInput, 'g'),`🏷️${regexOutput}📌`)
+            if (mode === "regex-gi")
+                return text.replace(new RegExp(regexInput, 'gi'),`🏷️${regexOutput}📌`)
+        }
+        function browser_replace(){
+            var mode = document.getElementById("mode").value;
+            var text = document.getElementById("text").value;
+            forEachRule(function(inEl, outEl){
+                text = replaceByMode(text, inEl.value, outEl.value, mode);
+            });
+            text = text.replaceAll('📌','</span>')
+            text = text.replaceAll('🏷️','<span class="hl">')
+            document.getElementById("output").innerHTML = "<pre>" + text + "</pre>";
+            
+        }
+        function copy(){
+            var text = document.getElementById("output").innerText;
+            var btn = document.getElementById("copy");
+            if (!btn) {
+                navigator.clipboard.writeText(text);
+                return;
+            }
+            var originalLabel = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "copied!";
+
+            navigator.clipboard.writeText(text).catch(function() {
+                // If copying fails, show a simple fallback message
+                btn.textContent = "copy failed";
+            }).finally(function() {
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btn.textContent = originalLabel;
+                }, 1200);
+            });
+        }
+        
+        // Set initial focus to textarea when page loads
+
+            document.getElementById("text").focus();
+
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            if (event.altKey) {
+                // Alt+T: Focus textarea
+                if (event.key === 't' || event.key === 'T') {
+                    event.preventDefault();
+                    document.getElementById("text").focus();
+                }
+                // Alt+1,2,3,4: Cycle through regexInput fields
+                else if (event.key >= '1' && event.key <= '9') {
+                    event.preventDefault();
+                    currentIndex = parseInt(event.key);
+                    if (currentIndex <= pairCount){
+                        if (document.getElementById("regexInput" + currentIndex) === document.activeElement){
+                            document.getElementById("regexOutput" + currentIndex).focus();
+                        }
+                        else{
+                            document.getElementById("regexInput" + currentIndex).focus();
+                        }
+                    }
+                    
+                }
+                // Alt+Y: Trigger copy button
+                else if (event.key === 'y' || event.key === 'Y') {
+                    event.preventDefault();
+                    copy();
+                }
+                // Alt+I: open import button
+                else if (event.key === 'i' || event.key === 'I') {
+                    event.preventDefault();
+                    openImport();
+                }
+                // Alt+S: open settings button
+                else if (event.key === 's' || event.key === 'S') {
+                    event.preventDefault();
+                    openSettings();
+                }
+            }
+        });
+
+        // init
+        renderPairs();
+    </script>
 </body>
 </html>
