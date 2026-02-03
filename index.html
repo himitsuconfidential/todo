@@ -230,13 +230,13 @@
                 // Keyboard shortcuts
         document.addEventListener('keydown', function(event) {
             if (event.altKey) {
-                // Alt+M: Focus textarea
-                if (event.key === 'L' || event.key === 'L') {
+                // Alt+M: add mission
+                if (event.key === 'm' || event.key === 'M') {
                     event.preventDefault();
                     addRow('mission', ['Deadline', 'Task']);
                 }
-                // Alt+M: Focus textarea
-                if (event.key === 'L' || event.key === 'L') {
+                // Alt+L: add log
+                if (event.key === 'l' || event.key === 'L') {
                     event.preventDefault();
                     addRow('log', ['Start Time', 'Activity', 'Path']);
                 }
