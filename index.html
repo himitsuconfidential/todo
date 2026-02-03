@@ -6,7 +6,7 @@
 
     body {
         font-family: Arial, sans-serif;
-        padding: 20px;
+        padding: 0px;
     }
     .section {
         background: white;
@@ -21,8 +21,31 @@
     table {
         border-collapse: collapse;
         width: 100%;
+        table-layout: fixed;
     }
 
+    /* Specific column widths */
+    #mission-table th:nth-child(1), #mission-table td:nth-child(1) {
+        width: 12vw; /* Deadline column */
+    }
+    #mission-table th:nth-child(2), #mission-table td:nth-child(2) {
+        width: 68vw; 
+    }
+    #mission-table th:nth-child(3), #mission-table td:nth-child(3) {
+        width: 10vw; /* Button column */
+    }
+    #log-table th:nth-child(1), #log-table td:nth-child(1) {
+        width: 12vw; /* Start Time column */
+    }
+    #log-table th:nth-child(2), #log-table td:nth-child(2) {
+        width: 34vw; 
+    }
+    #log-table th:nth-child(3), #log-table td:nth-child(3) {
+        width: 34vw; 
+    }
+    #log-table th:nth-child(4), #log-table td:nth-child(3) {
+        width: 10vw;  /* Button column */
+    }
     td input {
         width: calc(100% - 2px);
         padding: 12px;
@@ -63,7 +86,7 @@
     <div class="section">
         <h2>Mission</h2>
         <button class="copy-button" onclick="copyTableToClipboard('mission-table')">Copy Mission Table</button>
-        <button class="add-button" onclick="addRow('mission', ['Deadline', 'Task'])">Add Mission</button>
+        <button class="add-button" onclick="addRow('mission', ['Deadline', 'Task'])">Add <u>M</u>ission</button>
         <table id="mission-table"><thead><tr><th>Deadline</th><th>Task</th></tr></thead><tbody></tbody></table>
     </div>
 
@@ -72,12 +95,12 @@
     <div class="section">
         <h2>Log</h2>
         <button class="copy-button" onclick="copyTableToClipboard('log-table')">Copy Log Table</button>
-        <button class="add-button" onclick="addRow('log', ['Start Time', 'Flow', 'Path'])">Add Log</button>
-        <table id="log-table"><thead><tr><th>Start Time</th><th>Flow</th><th>Path</th></tr></thead><tbody></tbody></table>
+        <button class="add-button" onclick="addRow('log', ['Start Time', 'Activity', 'Path'])">Add <u>L</u>og</button>
+        <table id="log-table"><thead><tr><th>Start Time</th><th>Activity</th><th>Path</th></tr></thead><tbody></tbody></table>
     </div>
 
     <script>
-        const STORAGE_KEYS = { mission: 'missions', log: 'logs' };
+        const STORAGE_KEYS = { mission: 'localStoredMissions', log: 'localStoredLogs' };
 
         const saveData = (type, data) => localStorage.setItem(STORAGE_KEYS[type], JSON.stringify(data));
         const loadData = type => JSON.parse(localStorage.getItem(STORAGE_KEYS[type]) || '[]');
@@ -137,6 +160,7 @@
             data.unshift(newItem);
             saveData(type, data);
             populateTable(type, columns);
+            document.querySelector(`#${type}-table > tbody > tr > td:nth-child(2) > input[type=text]`).focus()
         };
 
         const saveTableData = type => {
@@ -195,12 +219,29 @@
 
         window.onload = () => {
             populateTable('mission', ['Deadline', 'Task']);
-            populateTable('log', ['Start Time', 'Flow', 'Path']);
+            populateTable('log', ['Start Time', 'Activity', 'Path']);
         };
 
         window.addEventListener('blur', () => {
             saveTableData('mission');
             saveTableData('log');
         });
+
+                // Keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            if (event.altKey) {
+                // Alt+M: Focus textarea
+                if (event.key === 'L' || event.key === 'L') {
+                    event.preventDefault();
+                    addRow('mission', ['Deadline', 'Task']);
+                }
+                // Alt+M: Focus textarea
+                if (event.key === 'L' || event.key === 'L') {
+                    event.preventDefault();
+                    addRow('log', ['Start Time', 'Activity', 'Path']);
+                }
+            }
+        });
+
     </script>
 </body>
