@@ -72,27 +72,13 @@
             background-color: yellow;
         }
     </style>
-    <script type="text/javascript">
 
-    function browser_replace(){
-        var flag = document.getElementById("case").checked ? 'gi' : 'g';
-        var text = document.getElementById("text").value;
-        var regexInput = document.getElementById("regexInput").value;
-        var regexOutput = document.getElementById("regexOutput").value;
-        document.getElementById("output").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, flag),`<span>${regexOutput}</span>`) + "</pre>";
-    }
-    function copy(){
-        var text = document.getElementById("output").innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            alert("copied to clipboard!")});
-    }
-    </script>
 </head>
 <body>
-    
-    <textarea id="text" rows = "5" placeholder="enter text to be replaced e.g. copy C:\myfolder\report.pdf" onchange="browser_replace()"></textarea><br>
-    <input id="regexInput" placeholder="(C:.*)\." onchange="browser_replace()"><br>
-    <input id="regexOutput" placeholder="$1_2024." onchange="browser_replace()"><br>
+    <header><h1>Text Replacer</h1></header>
+    <textarea id="text" rows = "5" placeholder="enter text to be replaced" onchange="browser_replace()"></textarea><br>
+    <input id="regexInput" value='\"(.+)\"' onchange="browser_replace()"><br>
+    <input id="regexOutput" value="='$1'!A1:T99" onchange="browser_replace()"><br>
     <button onclick = 'browser_replace()' id = 'btn1' >replace</button>
     <div class="checkbox-container">
         <input type="checkbox" id="case" onchange="browser_replace()">
@@ -106,7 +92,25 @@
             </p>
         </div>
     </div>
-    
 
+    <script type="text/javascript">
+        function browser_replace(){
+            var flag = document.getElementById("case").checked ? 'gi' : 'g';
+            var text = document.getElementById("text").value;
+            var regexInput = document.getElementById("regexInput").value;
+            var regexOutput = document.getElementById("regexOutput").value;
+            document.getElementById("output").innerHTML = "<pre>" + text.replace(new RegExp(regexInput, flag),`<span>${regexOutput}</span>`) + "</pre>";
+        }
+        function copy(){
+            var text = document.getElementById("output").innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("copied to clipboard!")});
+        }
+        document.getElementById('text').value = `"C:\\folder\\file.xlsx"`;
+        browser_replace();
+        document.getElementById('text').focus();
+        document.getElementById('tsvB').select();
+        
+    </script>
 </body>
 </html>
