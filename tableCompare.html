@@ -290,13 +290,13 @@
     <div class="mb-6 space-y-4">
       <div class="flex gap-4 flex-col sm:flex-row">
         <div class="flex-1">
-          <label class="block mb-2" for="tsvA">Table Left:</label>
+          <label class="block mb-2" for="tsvA">Table<u>1</u> Left:</label>
           
           <input type="file" id="fileA" class="file-upload-input" />
           <textarea id="tsvA" rows="8" class="block w-full p-2 border rounded font-mono text-base" placeholder="Paste Table Left here"></textarea>
         </div>
         <div class="flex-1">
-          <label class="block mb-2" for="tsvB">Table Right:</label>
+          <label class="block mb-2" for="tsvB">Table<u>2</u> Right:</label>
           
           <input type="file" id="fileB" class="file-upload-input" />
           <textarea id="tsvB" rows="8" class="block w-full p-2 border rounded font-mono text-base" placeholder="Paste Table Right here"></textarea>
@@ -305,13 +305,13 @@
       <div class="flex flex-wrap gap-4 items-center">
         <!-- Improved tolerance input -->
         <div class="flex items-center gap-2">
-          <label for="tolerance" class="mr-2 font-semibold">Tolerance:</label>
+          <label for="tolerance" class="mr-2 font-semibold">T<u>o</u>lerance:</label>
           <div class="flex items-center">
-            <input type="number" id="tolerance" class="border rounded p-1" style="width:80px;" value="1" min="0" step="any" />
+            <input type="number" id="tolerance" class="border rounded p-1" style="width:80px;" value="0" min="0" step="any" />
           </div>
         </div>
         <div>
-          <label for="numberMode" class="mr-2 font-semibold">Number Cell Display:</label>
+          <label for="numberMode" class="mr-2 font-semibold">Number Cell Displa<u>y</u>:</label>
           <select id="numberMode" class="border rounded p-1">
             <option value="a-b">Left - Right</option>
             <option value="a-b-div-b">(Left - Right) / Right</option>
@@ -321,7 +321,7 @@
         </div>
         <!-- New filter dropdown -->
         <div>
-          <label for="filterMode" class="mr-2 font-semibold">Filter:</label>
+          <label for="filterMode" class="mr-2 font-semibold">Filte<u>r</u>:</label>
           <select id="filterMode" class="border rounded p-1">
             <option value="all">Show All</option>
             <option value="mismatch">Show Only Mismatch</option>
@@ -347,7 +347,7 @@
           </select>
         </div>
         <button id="compareBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-          Compare
+          Compare (Ctrl+Enter)
         </button>
       </div>
     </div>
@@ -673,6 +673,13 @@
     document.getElementById('textMode').addEventListener('change', compareTSVs);
     document.getElementById('numberMode').addEventListener('change', compareTSVs);
     document.getElementById('typeMismatchMode').addEventListener('change', compareTSVs);
+    document.getElementById('filterMode').addEventListener('change', function() {
+      // Re-run comparison if results are visible
+      const resultDiv = document.getElementById('result');
+      if (!resultDiv.classList.contains('hidden')) {
+        compareTSVs();
+      }
+    });
 
     // Show details in table below summary
     function showCellDetail(event, row, col) {
@@ -716,6 +723,73 @@
 
     // Expose for inline onclick
     window.showCellDetail = showCellDetail;
+
+    // ===== Keyboard Shortcuts =====
+    document.addEventListener('keydown', function(event) {
+      // Check if user is actively typing in a text input
+      const isInTextarea = event.target.tagName === 'TEXTAREA' || 
+                          (event.target.tagName === 'INPUT' && event.target.type !== 'number');
+      const isInNumberInput = event.target.tagName === 'INPUT' && event.target.type === 'number';
+      
+      // Ctrl+Enter or Cmd+Enter: Compare (works from anywhere, including textareas)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        compareTSVs();
+        return;
+      }
+
+      // Alt shortcuts: work when NOT actively typing in textarea
+      // But allow Alt+O even when in number input (to refocus tolerance)
+      if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        const key = event.key.toLowerCase();
+        
+        // Alt+O: Focus Tolerance (works even from tolerance input itself)
+        if (key === 'o') {
+          event.preventDefault();
+          const toleranceInput = document.getElementById('tolerance');
+          toleranceInput.focus();
+          toleranceInput.select();
+          return;
+        }
+        
+        // Other Alt shortcuts: only work when NOT typing in textarea
+        if (!isInTextarea) {
+          event.preventDefault();
+          
+          switch(key) {
+            case '1':
+              document.getElementById('tsvA').focus();
+              break;
+            case '2':
+              document.getElementById('tsvB').focus();
+              break;
+            case 'y':
+              // Cycle through number mode options
+              const numberMode = document.getElementById('numberMode');
+              const options = ['a-b', 'a-b-div-b', 'b-a-div-a', 'a-vs-b'];
+              const currentIndex = options.indexOf(numberMode.value);
+              const nextIndex = (currentIndex + 1) % options.length;
+              numberMode.value = options[nextIndex];
+              numberMode.dispatchEvent(new Event('change'));
+              break;
+            case 'r':
+              // Cycle through filter options
+              const filterMode = document.getElementById('filterMode');
+              const filterOptions = ['all', 'mismatch', 'number-mismatch'];
+              const currentFilterIndex = filterOptions.indexOf(filterMode.value);
+              const nextFilterIndex = (currentFilterIndex + 1) % filterOptions.length;
+              filterMode.value = filterOptions[nextFilterIndex];
+              filterMode.dispatchEvent(new Event('change'));
+              // Re-run comparison if results are visible
+              const resultDiv = document.getElementById('result');
+              if (!resultDiv.classList.contains('hidden')) {
+                compareTSVs();
+              }
+              break;
+          }
+        }
+      }
+    });
   </script>
 </body>
 </html>
