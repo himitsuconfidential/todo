@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>spreadsheet</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .nav {
+            position: fixed;
+            top: 5px;
+            right: 5px;
+            z-index: 1000;
+        }
+        
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-toggle {
+            display: inline-block;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            user-select: none;
+            position: relative;
+        }
+        
+        .dropdown-toggle:hover {
+            background: #f8f9fa;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        
+        .dropdown-toggle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #666;
+            transition: transform 0.3s ease;
+        }
+        
+        .dropdown.active .dropdown-toggle::before {
+            transform: translateY(-50%) rotate(180deg);
+        }
+        
+        .dropdown-toggle::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(33, 150, 243, 0.05));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .dropdown-toggle:hover::after {
+            opacity: 1;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 160px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .dropdown.active .dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+            transition: background-color 0.2s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dropdown-item:hover {
+            background: #f8f9fa;
+            color: #2196F3;
+        }
+        
+        .dropdown-item:active {
+            background: #e3f2fd;
+        }
+        
+        #luckysheet {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .luckysheet-share-logo
+        {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="nav">
+        <div class="dropdown">
+            <span class="dropdown-toggle">⋯</span>
+            <div class="dropdown-menu">
+                <button onclick="importJSON()" class="dropdown-item">📁 Import JSON</button>
+                <button onclick="exportJSON()" class="dropdown-item">📋 Export JSON</button>
+                <button onclick="exportCSV()" class="dropdown-item">💾 Export CSV</button>
+            </div>
+        </div>
+        <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileImport(event)">
+    </div>
+    
+    <div class="container">
+        <div id="luckysheet"></div>
+    </div>
+
+    <!-- FortuneSheet CSS and JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/css/pluginsCss.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/plugins.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/css/luckysheet.css" /> <!-- remove icon luckysheet-share-logo -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/assets/iconfont/iconfont.css" />
+    <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/js/plugin.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/luckysheet.umd.js"></script> <!-- remove cdn link before use -->
+    
+    <script>
+                // LuckySheet Demo Implementation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Dropdown functionality
+            const dropdown = document.querySelector('.dropdown');
+            const dropdownToggle = document.querySelector('.dropdown-toggle');
+            
+            dropdownToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('active');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function() {
+                dropdown.classList.remove('active');
+            });
+            
+            // Prevent dropdown from closing when clicking inside
+            document.querySelector('.dropdown-menu').addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
+            // Wait for LuckySheet to load
+            setTimeout(() => {
+                if (typeof luckysheet === 'undefined') {
+                    console.error('LuckySheet not loaded');
+                    document.getElementById('luckysheet').innerHTML = 
+                        '<div style="padding: 20px; text-align: center; color: #666;">' +
+                        '<h3>Failed to load LuckySheet</h3>' +
+                        '<p>Please check your internet connection and refresh the page.</p>' +
+                        '</div>';
+                    return;
+                }
+
+
+                // Initialize LuckySheet
+                const options = {
+                    container: 'luckysheet', // Container ID
+                    title: 'Workbook1', // Workbook name
+                    lang: 'en', // Language
+                    
+                    // Callback functions
+                    cellEditBefore: function(range) {
+                        console.log('Cell edit started:', range);
+                    },
+                    
+                    cellUpdated: function(r, c, oldValue, newValue, isRefresh) {
+                        console.log('Cell updated:', {row: r, col: c, oldValue, newValue, isRefresh});
+                    },
+                    
+                    sheetActivate: function(index, isPivotInitial, isNewSheet) {
+                        console.log('Sheet activated:', {index, isPivotInitial, isNewSheet});
+                    },
+                    
+                    workbookCreateAfter: function() {
+                        console.log('LuckySheet initialized successfully!');
+                        
+                        // Add some helpful tips
+                        setTimeout(() => {
+                            console.log('Tips:');
+                            console.log('- Try copying data from Excel and pasting it here');
+                            console.log('- Use Ctrl+Z for undo, Ctrl+Y for redo');
+                            console.log('- Right-click for context menus');
+                            console.log('- Double-click cell borders to auto-resize columns');
+                        }, 1000);
+                    }
+                };
+
+                // Initialize the spreadsheet
+                try {
+                    luckysheet.create(options);
+                } catch (error) {
+                    console.error('Failed to initialize LuckySheet:', error);
+                    document.getElementById('luckysheet').innerHTML = 
+                        '<div style="padding: 20px; text-align: center; color: #666;">' +
+                        '<h3>Failed to load LuckySheet</h3>' +
+                        '<p>Please check your internet connection and refresh the page.</p>' +
+                        '<p>Error: ' + error.message + '</p>' +
+                        '</div>';
+                }
+            }, 1000); // Wait 1 second for scripts to load
+        });
+
+        // Additional utility functions
+        window.importJSON = function() {
+            document.getElementById('fileInput').click();
+        };
+
+        window.handleFileImport = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const fileName = file.name.toLowerCase();
+            
+            if (fileName.endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const jsonText = e.target.result;
+                    importJSONData(jsonText);
+                };
+                reader.readAsText(file);
+            } else {
+                alert('Please select a JSON file (.json)');
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        };
+
+        function importJSONData(jsonText) {
+            try {
+                const jsonData = JSON.parse(jsonText);
+                
+                // Handle LuckySheet native format
+                if (jsonData.data && Array.isArray(jsonData.data)) {
+                    // Complete workbook format - replace all sheets
+                    console.log('Importing LuckySheet workbook format');
+                    
+                    // Destroy current instance and recreate with new data
+                    luckysheet.destroy();
+                    
+                    // Wait a moment then recreate
+                    setTimeout(() => {
+                        const options = {
+                            container: 'luckysheet',
+                            data: jsonData.data,
+                            title: jsonData.title || 'Imported Spreadsheet',
+                            lang: 'en',
+                            showtoolbar: true,
+                            showinfobar: true,
+                            showsheetbar: true,
+                            showstatisticBar: true,
+                            allowCopy: true,
+                            allowEdit: true,
+                            showGridLines: true,
+                            enableAddRow: true,
+                            enableAddCol: true,
+                            workbookCreateAfter: function() {
+                                console.log('JSON workbook imported successfully!');
+                            }
+                        };
+                        
+                        luckysheet.create(options);
+                    }, 100);
+                    
+                } else if (jsonData.celldata || (jsonData.name && jsonData.index !== undefined)) {
+                    // Single sheet format
+                    console.log('Importing single sheet format');
+                    
+                    // Clear current sheet
+                    luckysheet.clearRange();
+                    
+                    // Set the cell data
+                    if (jsonData.celldata && Array.isArray(jsonData.celldata)) {
+                        // Use LuckySheet's native method to set cell data
+                        jsonData.celldata.forEach(cell => {
+                            if (cell.r !== undefined && cell.c !== undefined && cell.v) {
+                                try {
+                                    luckysheet.setCellValue(cell.r, cell.c, cell.v.v || cell.v.m || cell.v, {
+                                        success: function() {
+                                            // Apply formatting if available
+                                            if (cell.v.bg) {
+                                                luckysheet.setRangeStyle({
+                                                    row: [cell.r, cell.r],
+                                                    column: [cell.c, cell.c]
+                                                }, 'background', cell.v.bg);
+                                            }
+                                            if (cell.v.fc) {
+                                                luckysheet.setRangeStyle({
+                                                    row: [cell.r, cell.r],
+                                                    column: [cell.c, cell.c]
+                                                }, 'color', cell.v.fc);
+                                            }
+                                            if (cell.v.bl) {
+                                                luckysheet.setRangeStyle({
+                                                    row: [cell.r, cell.r],
+                                                    column: [cell.c, cell.c]
+                                                }, 'fontweight', 'bold');
+                                            }
+                                        }
+                                    });
+                                } catch (cellError) {
+                                    console.warn('Error setting cell', cell.r, cell.c, cellError);
+                                }
+                            }
+                        });
+                        
+                        console.log('JSON sheet imported successfully');
+                    }
+                } else {
+                    alert('Invalid JSON format. Please use LuckySheet native format.');
+                    return;
+                }
+                
+            } catch (error) {
+                console.error('Error importing JSON:', error);
+                alert('Error importing JSON file. Please check the file format.\n\nOnly LuckySheet native format is supported.');
+            }
+        }
+
+        function exportAsLuckySheetFormat() {
+            // Get the complete LuckySheet data
+            const allSheets = luckysheet.getAllSheets();
+            
+            return {
+                title: 'Exported Spreadsheet',
+                data: allSheets.map(sheet => ({
+                    name: sheet.name,
+                    index: sheet.index,
+                    status: sheet.status,
+                    order: sheet.order,
+                    hide: sheet.hide || 0,
+                    row: sheet.row || 84,
+                    column: sheet.column || 60,
+                    defaultRowHeight: sheet.defaultRowHeight || 19,
+                    defaultColWidth: sheet.defaultColWidth || 73,
+                    celldata: sheet.celldata || [],
+                    config: sheet.config || {},
+                    scrollLeft: sheet.scrollLeft || 0,
+                    scrollTop: sheet.scrollTop || 0,
+                    luckysheet_select_save: sheet.luckysheet_select_save || [],
+                    calcChain: sheet.calcChain || [],
+                    isPivotTable: sheet.isPivotTable || false,
+                    pivotTable: sheet.pivotTable || {},
+                    filter_select: sheet.filter_select || {},
+                    filter: sheet.filter || null,
+                    luckysheet_alternateformat_save: sheet.luckysheet_alternateformat_save || [],
+                    luckysheet_conditionformat_save: sheet.luckysheet_conditionformat_save || {},
+                    frozen: sheet.frozen || {},
+                    chart: sheet.chart || [],
+                    zoomRatio: sheet.zoomRatio || 1,
+                    image: sheet.image || [],
+                    showGridLines: sheet.showGridLines !== undefined ? sheet.showGridLines : 1,
+                    dataVerification: sheet.dataVerification || {}
+                }))
+            };
+        }
+
+        window.exportJSON = function() {
+            try {
+                if (typeof luckysheet !== 'undefined') {
+                    // Export in LuckySheet native format only
+                    const jsonData = exportAsLuckySheetFormat();
+                    
+                    // Download JSON
+                    const jsonString = JSON.stringify(jsonData, null, 2);
+                    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', 'spreadsheet.json');
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    console.log('JSON exported successfully in LuckySheet format');
+                }
+            } catch (error) {
+                console.error('Error exporting JSON:', error);
+                alert('Error exporting JSON file.');
+            }
+        };
+
+        window.exportCSV = function() {
+            try {
+                if (typeof luckysheet !== 'undefined') {
+                    // Get current sheet data using the correct LuckySheet method
+                    const sheetIndex = luckysheet.getSheet().index;
+                    const sheetData = luckysheet.getSheetData(sheetIndex);
+                    
+                    if (!sheetData || sheetData.length === 0) {
+                        alert('No data to export');
+                        return;
+                    }
+                    
+                    // Find the actual data bounds
+                    let maxRow = 0;
+                    let maxCol = 0;
+                    
+                    // LuckySheet returns data in a different format, let's handle it properly
+                    for (let r = 0; r < sheetData.length; r++) {
+                        if (sheetData[r]) {
+                            for (let c = 0; c < sheetData[r].length; c++) {
+                                if (sheetData[r][c] !== null && sheetData[r][c] !== undefined) {
+                                    maxRow = Math.max(maxRow, r);
+                                    maxCol = Math.max(maxCol, c);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Convert to CSV - export calculated values only, not formulas
+                    let csv = '';
+                    for (let r = 0; r <= maxRow; r++) {
+                        const csvRow = [];
+                        for (let c = 0; c <= maxCol; c++) {
+                            let cellValue = '';
+                            
+                            if (sheetData[r] && sheetData[r][c] !== null && sheetData[r][c] !== undefined) {
+                                const cell = sheetData[r][c];
+                                
+                                // Handle different cell formats - prioritize display value over raw value
+                                if (typeof cell === 'object' && cell.m !== undefined) {
+                                    // Use display value (calculated result) instead of raw value
+                                    cellValue = cell.m;
+                                } else if (typeof cell === 'object' && cell.v !== undefined) {
+                                    // Fallback to raw value if no display value
+                                    cellValue = cell.v;
+                                } else {
+                                    // Direct value
+                                    cellValue = cell;
+                                }
+                            }
+                            
+                            // Convert to string and handle CSV escaping
+                            let value = cellValue.toString();
+                            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                                value = '"' + value.replace(/"/g, '""') + '"';
+                            }
+                            csvRow.push(value);
+                        }
+                        csv += csvRow.join(',') + '\n';
+                    }
+                    
+                    // Download CSV
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', 'spreadsheet.csv');
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    console.log('CSV exported successfully with calculated values');
+                }
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                alert('Error exporting CSV file. Please try again.');
+            }
+        };
+    </script>
+</body>
+</html>
