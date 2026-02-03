@@ -298,10 +298,8 @@
         }
         
         // Set initial focus to textarea when page loads
-
-            document.getElementById("text").focus();
-
-        
+        document.getElementById("text").focus();
+        document.getElementById("text").select();
         // Keyboard shortcuts
         document.addEventListener('keydown', function(event) {
             if (event.altKey) {
@@ -309,6 +307,7 @@
                 if (event.key === 't' || event.key === 'T') {
                     event.preventDefault();
                     document.getElementById("text").focus();
+                    document.getElementById("text").select();
                 }
                 // Alt+1,2,3,4: Cycle through regexInput fields
                 else if (event.key >= '1' && event.key <= '9') {
@@ -317,9 +316,11 @@
                     if (currentIndex <= pairCount){
                         if (document.getElementById("regexInput" + currentIndex) === document.activeElement){
                             document.getElementById("regexOutput" + currentIndex).focus();
+                            document.getElementById("regexOutput" + currentIndex).select();
                         }
                         else{
                             document.getElementById("regexInput" + currentIndex).focus();
+                            document.getElementById("regexInput" + currentIndex).select();
                         }
                     }
                     
