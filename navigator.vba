@@ -45,8 +45,8 @@ Sub SelectSheetByFilter()
         msg = msg & i & ") " & filteredSheets(i).name & vbCrLf
     Next i
     
-    userChoice = InputBox(msg & vbCrLf & "Enter the number of the sheet to activate:", "Select Sheet")
-    
+    userChoice = InputBox(msg & vbCrLf & "Enter the number of the sheet to activate:", "Select Sheet", 1)
+    If userChoice = "" Then Exit Sub
     ' Step 6: Activate chosen sheet
     If IsNumeric(userChoice) Then
         i = CLng(userChoice)
@@ -74,7 +74,7 @@ Sub SelectWorkbookByName()
     
     ' Step 2: Ask user to choose
     userChoice = InputBox(msg & vbCrLf & "Enter the number of the workbook to activate:", "Select Workbook", 1)
-    
+    If userChoice = "" Then Exit Sub
     ' Step 3: Activate chosen workbook
 
     If IsNumeric(userChoice) Then
@@ -122,16 +122,13 @@ Sub SelectRecentByName()
         msg = msg & i & ") " & filteredWB(i).Path & vbCrLf
     Next i
     
-    userChoice = InputBox(msg & vbCrLf & "Enter the number of the workbook to open:", "Select Workbook")
-    
+    userChoice = InputBox(msg & vbCrLf & "Enter the number of the workbook to open:", "Select Workbook", 1)
+    If userChoice = "" Then Exit Sub
     ' Step 4: Activate chosen workbook
 
     If IsNumeric(userChoice) Then
         i = CLng(userChoice)
         If i >= 1 And i <= Application.RecentFiles.Count Then
-            arr = Split(filteredWB(i).Path, "\")
-            Debug.Print arr(0)
-            Debug.Print arr(1)
             resp = MsgBox("Open following path ?" & vbCrLf & filteredWB(i).Path, vbYesNo, "Open Workbook")
             If resp = vbYes Then filteredWB(i).Open
         Else
